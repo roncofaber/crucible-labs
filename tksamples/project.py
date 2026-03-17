@@ -34,10 +34,14 @@ class CrucibleProject(SampleCollection):
         self._use_cache = use_cache
         self._overwrite_cache = overwrite_cache
 
-        # load datasets and samples and initialize parent
-        self._load_datasets(project_id)
-        samples = self._load_samples(project_id)
-        super().__init__(samples=samples, project_id=project_id)
+        # load datasets and samples
+        self._datasets = self._load_datasets(project_id)
+        self._samples = self._load_samples(project_id)
+        
+        self._assign_datasets_to_samples()
+        
+        # initialize parent class to enable list operations
+        super().__init__(samples=self._samples, project_id=project_id)
 
         # build project graph
         self._setup_graph()
@@ -46,12 +50,32 @@ class CrucibleProject(SampleCollection):
     
     def _load_samples(self, project_id):
         """Load all samples from the Crucible project."""
+        
         # get all samples and datasets
-        dsts_samples  = self._get_project_samples(project_id)
+        dsts_samples = self.client.samples.list(
+            project_id=project_id, sample_type=None, limit=1e8)
+        dsts_samples = sorted(dsts_samples, key=lambda x: x["sample_name"])
+        
+        return dsts_samples
 
+    def _load_datasets(self, project_id):
+        
+        self._datasets = self.client.datasets.list(
+            project_id       = project_id,
+            include_metadata = True,
+            limit            = 1e8,
+            )
+
+        # create mapping of datasets with metadata
+        self._datasets_by_id = {dst["unique_id"]:dst for dst in self._datasets}
+        
+        return
+    
+    def _assign_datasets_to_samples(self):
+        
         # create one sample obj for each sample dataset
         samples = []
-        for dst_sample in dsts_samples:
+        for dst_sample in self._samples:
 
             for dst in dst_sample.get("datasets", []):
                 try:
@@ -65,29 +89,10 @@ class CrucibleProject(SampleCollection):
             except Exception as e:
                 logger.error(f"Failed to create Sample from dataset: {e}")
                 logger.error(f"Dataset details:\n\t{dst_sample}")
-
-        return samples
-
-    def _load_datasets(self, project_id):
         
-        self._datasets = self._get_project_datasets(project_id)
-
-        # create mapping of datasets with metadata
-        self._datasets_by_id = {dst["unique_id"]:dst for dst in self._datasets}
-        
+        self._samples = samples
         return
 
-    def _get_project_samples(self, project_id):
-        dsts_samples = self.client.list_samples(
-            project_id=project_id, sample_type=None, limit=999999)
-        dsts_samples = sorted(dsts_samples, key=lambda x: x["sample_name"])
-        return dsts_samples
-
-    def _get_project_datasets(self, project_id):
-        dsts_datasets = self.client.list_datasets(
-            project_id=project_id, limit=999999, include_metadata=True)
-        return dsts_datasets
-    
     def _get_project_graph(self):
         return self.client._request("GET",f"/projects/{self.project_id}/sample_graph")
     
