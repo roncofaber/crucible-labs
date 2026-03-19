@@ -39,7 +39,7 @@ dependencies = [
     "platformdirs>=2.5.0",
     "scikit-image>=0.19.0",
     "networkx>=2.8.0",
-    "nano-crucible @ git+https://github.com/MolecularFoundryCrucible/nano-crucible"
+    "nano-crucible"
 ]
 
 [project.urls]
