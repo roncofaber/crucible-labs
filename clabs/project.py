@@ -206,6 +206,12 @@ class CrucibleProject:
         collection = self._samples.filter(sample_type=sample_type) if sample_type else self._samples
         datasets   = collection.samples_datasets.filter(measurement=measurement_type)
         cache_dir  = self._cache_dir + "/datasets"
+        n          = len(datasets)
+
+        tqdm.write(f"\n  {measurement_type}  ({n} datasets)")
+        tqdm.write("  " + "─" * 52)
+
+        bar_kwargs = dict(unit="dts", leave=True, ncols=72)
 
         # phase 1: prefetch all files in parallel (pure I/O, no shared state)
         def _prefetch(dataset):
@@ -213,12 +219,12 @@ class CrucibleProject:
 
         with ThreadPoolExecutor() as executor:
             futures = {executor.submit(_prefetch, ds): ds for ds in datasets}
-            for future in tqdm(as_completed(futures), total=len(futures),
-                               desc="Downloading", unit="dts", leave=True):
+            for future in tqdm(as_completed(futures), total=n,
+                               desc="  downloading", **bar_kwargs):
                 future.result()  # surface any download exceptions
 
         # phase 2: parse sequentially (modifies shared sample state)
-        for dataset in tqdm(datasets, desc=description, unit="dts", leave=True):
+        for dataset in tqdm(datasets, desc="  parsing    ", **bar_kwargs):
             try:
                 dataset.load(
                     self.client,
