@@ -5,8 +5,8 @@
 ## Installation
 
 ```bash
-git clone https://github.com/roncofaber/10k-samples.git
-cd 10k-samples
+git clone https://github.com/roncofaber/crucible-labs.git
+cd crucible-labs
 pip install -e .
 ```
 

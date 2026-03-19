@@ -43,10 +43,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/roncofaber/10k-samples"
-Repository = "https://github.com/roncofaber/10k-samples"
-Documentation = "https://github.com/roncofaber/10k-samples#readme"
-"Bug Tracker" = "https://github.com/roncofaber/10k-samples/issues"
+Homepage = "https://github.com/roncofaber/crucible-labs"
+Repository = "https://github.com/roncofaber/crucible-labs"
+Documentation = "https://github.com/roncofaber/crucible-labs#readme"
+"Bug Tracker" = "https://github.com/roncofaber/crucible-labs/issues"
 
 [tool.setuptools]
 packages = [
