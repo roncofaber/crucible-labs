@@ -14,8 +14,8 @@ Created on Fri Jan 16 18:22:21 2026
 import logging
 
 # internal modules
-from tksamples.core import CruxObj
-from tksamples.models import BaseDataset
+from clabs.core import CruxObj
+from clabs.models import BaseDataset
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)

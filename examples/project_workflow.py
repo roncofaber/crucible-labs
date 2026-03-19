@@ -11,9 +11,9 @@ Created on Thu Feb 6 2026
 @author: roncofaber
 """
 
-import tksamples
-tksamples.setup_logging(level=100)  # Suppress most logging
-from tksamples.project import CrucibleProject
+import clabs
+clabs.setup_logging(level=100)  # Suppress most logging
+from clabs.project import CrucibleProject
 
 #%% Load the entire project
 
@@ -80,7 +80,7 @@ print(f"Common ancestors: {len(common)}")
 
 #%% Visualize genealogy
 
-from tksamples.graph import (
+from clabs.graph import (
     plot_direct_neighbors,
     plot_ancestors,
     plot_descendants,

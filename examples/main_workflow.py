@@ -14,7 +14,7 @@ Created on Thu Jan 22 14:05:48 2026
 """
 
 # Load relevant modules
-from tksamples import Samples
+from clabs import Samples
 
 #%%
 # Initialize the Samples object

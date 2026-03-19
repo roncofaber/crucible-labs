@@ -3,7 +3,7 @@
 """
 Quick Start Example
 
-The absolute minimal code to get started with tksamples.
+The absolute minimal code to get started with clabs.
 Choose your approach based on your needs.
 
 @author: roncofaber
@@ -11,7 +11,7 @@ Choose your approach based on your needs.
 
 #%% APPROACH 1: Simple - Just load samples and measurements
 
-from tksamples import Samples
+from clabs import Samples
 
 # Load thin film samples
 samples = Samples(project_id="10k_perovskites", sample_type="thin film")
@@ -26,7 +26,7 @@ print(sample.sample_name)
 
 #%% APPROACH 2: Full - Project with genealogy
 
-from tksamples.project import CrucibleProject
+from clabs.project import CrucibleProject
 
 # Load entire project
 proj = CrucibleProject("10k_perovskites")
@@ -41,7 +41,7 @@ ancestors = proj.get_ancestors(sample)
 siblings = proj.get_siblings(sample)
 
 # Visualize
-from tksamples.graph import plot_extended_family
+from clabs.graph import plot_extended_family
 fig, ax = plot_extended_family(proj, sample)
 
 #%% That's it! See other examples for more details.

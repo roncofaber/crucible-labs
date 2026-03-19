@@ -15,8 +15,8 @@ Created on Mon Dec 22 15:24:53 2025
 import numpy as np
 
 # internal modules
-from tksamples.measurements.uvvis.uvvis import NirvanaUVVis
-from tksamples.utils.auxiliary import number_to_well
+from clabs.measurements.uvvis.uvvis import NirvanaUVVis
+from clabs.utils.auxiliary import number_to_well
 
 # echfive
 import h5py

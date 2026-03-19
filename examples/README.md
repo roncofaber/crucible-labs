@@ -1,6 +1,6 @@
-# tksamples Examples
+# clabs Examples
 
-This directory contains example scripts demonstrating how to use the tksamples package.
+This directory contains example scripts demonstrating how to use the clabs package.
 
 ## 🚀 Start Here
 
@@ -70,7 +70,7 @@ Kept for backwards compatibility. Use `samples_workflow.py` or `project_workflow
 ### Example: Combined Workflow
 
 ```python
-from tksamples.project import CrucibleProject
+from clabs.project import CrucibleProject
 
 # Load full project with genealogy
 proj = CrucibleProject("10k_perovskites")
@@ -87,7 +87,7 @@ sample = thin_films[0]
 ancestors = proj.get_ancestors(sample)
 
 # Visualize
-from tksamples.graph import plot_extended_family
+from clabs.graph import plot_extended_family
 fig, ax = plot_extended_family(proj, sample)
 ```
 

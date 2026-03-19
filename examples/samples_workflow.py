@@ -12,7 +12,7 @@ Created on Thu Jan 22 14:05:48 2026
 """
 
 # Load relevant modules
-from tksamples import Samples
+from clabs import Samples
 
 #%% Initialize the Samples collection for thin films
 
@@ -84,7 +84,7 @@ print(f"Subset contains {subset.nsamples} samples")
 # - You want graph visualization
 
 # Example: Use CrucibleProject to get Samples collection
-# from tksamples.project import CrucibleProject
+# from clabs.project import CrucibleProject
 # proj = CrucibleProject("10k_perovskites")
 # thin_films = proj.get_samples_collection("thin film")
 # thin_films.get_uvvis_data()

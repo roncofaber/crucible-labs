@@ -1,5 +1,5 @@
 """
-Utils module for tksamples
+Utils module for clabs
 
 Contains utility functions for plotting, visualization, and data processing
 including well position conversion and helper functions.

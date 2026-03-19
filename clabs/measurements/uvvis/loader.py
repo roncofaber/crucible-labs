@@ -13,7 +13,7 @@ by Dataset.load()) and returns a list of NirvanaUVVis objects.
 import os
 import logging
 
-from tksamples.measurements.uvvis.h5reader import h5_to_samples
+from clabs.measurements.uvvis.h5reader import h5_to_samples
 
 logger = logging.getLogger(__name__)
 

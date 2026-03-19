@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tksamples"
-description = "10k thin film sample analysis tools with Crucible integration"
+name = "crucible-labs"
+description = "Sample and dataset management tools with Crucible integration"
 readme = "README.md"
 authors = [
     {name = "roncofaber", email = "fabrice.roncoroni@gmail.com"}
@@ -50,16 +50,14 @@ Documentation = "https://github.com/roncofaber/10k-samples#readme"
 
 [tool.setuptools]
 packages = [
-    "tksamples",
-    "tksamples.read",
-    "tksamples.measurements",
-    "tksamples.utils",
-    "tksamples.crucible",
-    "tksamples.examples"
+    "clabs",
+    "clabs.measurements",
+    "clabs.measurements.uvvis",
+    "clabs.measurements.image",
+    "clabs.utils",
+    "clabs.graph",
+    "clabs.plot"
 ]
 
-[tool.setuptools.package-data]
-"tksamples.examples" = ["*.h5"]
-
 [tool.setuptools.dynamic]
-version = {attr = "tksamples.__version__"}
+version = {attr = "clabs.__version__"}

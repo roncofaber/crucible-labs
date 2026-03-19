@@ -13,8 +13,8 @@ Created on Wed Jan  7 17:53:17 2026
 import logging
 
 # internal modules
-from tksamples.core import CruxObj
-from tksamples.models import BaseSample
+from clabs.core import CruxObj
+from clabs.models import BaseSample
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)

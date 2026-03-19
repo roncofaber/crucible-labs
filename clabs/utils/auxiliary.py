@@ -4,7 +4,7 @@
 Auxiliary Utilities: Helper Functions
 
 Contains utility functions for datetime parsing, well position conversion,
-and data filtering used across the tksamples package.
+and data filtering used across the clabs package.
 
 Created on Fri Jan 16 17:32:08 2026
 @author: roncofaber

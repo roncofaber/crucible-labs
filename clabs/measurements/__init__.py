@@ -1,5 +1,5 @@
 """
-Measurements module for tksamples
+Measurements module for clabs
 
 Contains the Measurement base class and instrument-specific subclasses.
 Importing this module also registers all known loaders with Dataset so
@@ -11,7 +11,7 @@ from .uvvis import NirvanaUVVis, load_uvvis
 from .image import TFImage, load_image
 
 # Register loaders with Dataset so dataset.load() can dispatch by mtype
-from tksamples.dataset import Dataset
+from clabs.dataset import Dataset
 
 Dataset.register_loader("pollux_oospec_multipos_line_scan", load_uvvis)
 Dataset.register_loader("sample well image",                load_image)

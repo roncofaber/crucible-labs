@@ -7,10 +7,10 @@ Created on Thu Feb  5 13:09:34 2026
 """
 
 # internal modules
-from tksamples import Sample, Dataset
-from tksamples.collection import SampleCollection, DatasetCollection
-from tksamples.graph.graph import build_project_graph
-from tksamples.models import BaseProject
+from clabs import Sample, Dataset
+from clabs.collection import SampleCollection, DatasetCollection
+from clabs.graph.graph import build_project_graph
+from clabs.models import BaseProject
 from crucible.config import get_client, get_cache_dir
 
 # Set up logger for this module
@@ -240,7 +240,7 @@ class CrucibleProject:
         sample_type : str, optional
             If given, only process datasets belonging to samples of this type.
         """
-        import tksamples.measurements  # ensures loaders are registered
+        import clabs.measurements  # ensures loaders are registered
         self._get_measurement_data(
             measurement_type = measurement_type,
             description      = measurement_type,

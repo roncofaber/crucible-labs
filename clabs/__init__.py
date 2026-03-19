@@ -1,5 +1,5 @@
 """
-tksamples: Sample and Dataset management with Crucible integration.
+clabs: Sample and Dataset management with Crucible integration.
 
 Provides core classes for working with samples, datasets, and collections
 backed by the Crucible data lakehouse (via nano-crucible).
@@ -54,7 +54,7 @@ class _TqdmHandler(logging.StreamHandler):
 
 def setup_logging(level=logging.INFO, format_string=None):
     """
-    Configure logging for the tksamples package.
+    Configure logging for the clabs package.
 
     Parameters
     ----------
@@ -66,14 +66,14 @@ def setup_logging(level=logging.INFO, format_string=None):
 
     Examples
     --------
-    >>> import tksamples
-    >>> tksamples.setup_logging(level=logging.DEBUG)  # Show all messages
-    >>> tksamples.setup_logging(level=logging.WARNING)  # Only warnings and errors
+    >>> import clabs
+    >>> clabs.setup_logging(level=logging.DEBUG)  # Show all messages
+    >>> clabs.setup_logging(level=logging.WARNING)  # Only warnings and errors
     """
     if format_string is None:
         format_string = '%(levelname)s | %(message)s'
 
-    logger = logging.getLogger('tksamples')
+    logger = logging.getLogger('clabs')
     logger.setLevel(level)
     logger.handlers.clear()
 

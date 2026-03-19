@@ -1,7 +1,7 @@
 """
-Example scripts and sample data for tksamples package.
+Example scripts and sample data for clabs package.
 
-This module contains example scripts demonstrating how to use the tksamples
+This module contains example scripts demonstrating how to use the clabs
 package for thin film sample characterization, along with sample HDF5 data files.
 
 Examples:

@@ -16,7 +16,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 # internal modules
-from tksamples.measurements.measurement import Measurement
+from clabs.measurements.measurement import Measurement
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)

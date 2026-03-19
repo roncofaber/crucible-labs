@@ -10,7 +10,7 @@ Created on Fri Jan 30 14:32:30 2026
 """
 
 # Load relevant modules
-from tksamples import Samples  # Import the Samples class from the tksamples package
+from clabs import Samples  # Import the Samples class from the clabs package
 import matplotlib.pyplot as plt
 
 #%%
@@ -24,7 +24,7 @@ samples.get_well_images()
 
 #%% Plot the grid
 
-from tksamples.plot.tfgrid import plot_tfilms_grid
+from clabs.plot.tfgrid import plot_tfilms_grid
 
 fig_width = 16
 target_ratio = 16/9

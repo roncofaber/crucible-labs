@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 # import client from nano-crucible
 from crucible.config import get_client
-from tksamples.utils.auxiliary import parse_datetime
+from clabs.utils.auxiliary import parse_datetime
 
 #%%
 

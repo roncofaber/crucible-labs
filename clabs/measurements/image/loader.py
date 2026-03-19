@@ -13,7 +13,7 @@ by Dataset.load()) and returns a TFImage object.
 import os
 import logging
 
-from tksamples.measurements.image.image import TFImage
+from clabs.measurements.image.image import TFImage
 
 logger = logging.getLogger(__name__)
 

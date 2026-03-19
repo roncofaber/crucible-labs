@@ -34,7 +34,7 @@ class FieldSpec:
 
     Examples
     --------
-    >>> from tksamples import FieldSpec as F
+    >>> from clabs import FieldSpec as F
     >>> fields = {
     ...     "spin_run":                     ["spin_speed", "annealing_duration"],
     ...     "Precursor Solution synthesis": F("target_stoichiometry", sample_type="precursor solution"),
@@ -224,7 +224,7 @@ class SampleCollection(CrucibleCollection):
 
         Examples
         --------
-        >>> from tksamples import FieldSpec as F
+        >>> from clabs import FieldSpec as F
         >>> fields = {
         ...     "spin_run":                     ["spin_speed", "annealing_duration"],
         ...     "Precursor Solution synthesis": F("target_stoichiometry", sample_type="precursor solution"),

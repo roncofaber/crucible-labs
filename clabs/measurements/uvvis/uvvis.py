@@ -16,8 +16,8 @@ import numpy as np
 from scipy.integrate import simpson
 
 # internal modules
-from tksamples.measurements.uvvis.plotting import plot_sample
-from tksamples.measurements.measurement import Measurement
+from clabs.measurements.uvvis.plotting import plot_sample
+from clabs.measurements.measurement import Measurement
 
 #%%
 
