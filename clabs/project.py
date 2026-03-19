@@ -201,6 +201,7 @@ class CrucibleProject:
             If given, only process datasets belonging to samples of this type.
         """
         from tqdm import tqdm
+        from tqdm.contrib.logging import logging_redirect_tqdm
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         collection = self._samples.filter(sample_type=sample_type) if sample_type else self._samples
@@ -213,27 +214,29 @@ class CrucibleProject:
 
         bar_kwargs = dict(unit="dts", leave=True, ncols=72)
 
-        # phase 1: prefetch all files in parallel (pure I/O, no shared state)
-        def _prefetch(dataset):
-            dataset.prefetch(self.client, cache_dir, overwrite_existing=self._overwrite_cache)
+        with logging_redirect_tqdm():
 
-        with ThreadPoolExecutor() as executor:
-            futures = {executor.submit(_prefetch, ds): ds for ds in datasets}
-            for future in tqdm(as_completed(futures), total=n,
-                               desc="  downloading", **bar_kwargs):
-                future.result()  # surface any download exceptions
+            # phase 1: prefetch all files in parallel (pure I/O, no shared state)
+            def _prefetch(dataset):
+                dataset.prefetch(self.client, cache_dir, overwrite_existing=self._overwrite_cache)
 
-        # phase 2: parse sequentially (modifies shared sample state)
-        for dataset in tqdm(datasets, desc="  parsing    ", **bar_kwargs):
-            try:
-                dataset.load(
-                    self.client,
-                    cache_dir          = cache_dir,
-                    use_cache          = self._use_cache,
-                    overwrite_existing = self._overwrite_cache,
-                )
-            except NotImplementedError:
-                logger.warning(f"No loader for {dataset.dtype!r}, skipping {dataset.name!r}")
+            with ThreadPoolExecutor() as executor:
+                futures = {executor.submit(_prefetch, ds): ds for ds in datasets}
+                for future in tqdm(as_completed(futures), total=n,
+                                   desc="  downloading", **bar_kwargs):
+                    future.result()  # surface any download exceptions
+
+            # phase 2: parse sequentially (modifies shared sample state)
+            for dataset in tqdm(datasets, desc="  parsing    ", **bar_kwargs):
+                try:
+                    dataset.load(
+                        self.client,
+                        cache_dir          = cache_dir,
+                        use_cache          = self._use_cache,
+                        overwrite_existing = self._overwrite_cache,
+                    )
+                except NotImplementedError:
+                    logger.warning(f"No loader for {dataset.dtype!r}, skipping {dataset.name!r}")
 
     def load_measurements(self, measurement_type, sample_type=None):
         """
