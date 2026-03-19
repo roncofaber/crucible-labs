@@ -3,12 +3,61 @@
 """
 Auxiliary Utilities: Helper Functions
 
-Contains utility functions for well position conversion and data filtering
-used across the tksamples package for sample identification and data processing.
+Contains utility functions for datetime parsing, well position conversion,
+and data filtering used across the tksamples package.
 
 Created on Fri Jan 16 17:32:08 2026
 @author: roncofaber
 """
+
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+# Ordered list of (format_string, description) fallbacks tried after isoformat
+_DATETIME_FALLBACKS = [
+    ("%Y%m%d_%p", "YYYYMMDD_AM/PM"),  # e.g. '20251209_am', '20251209_pm'
+    ("%Y%m%d",    "YYYYMMDD"),         # e.g. '20251209'
+    ("%Y-%m-%d",  "YYYY-MM-DD"),       # e.g. '2025-12-09'
+    ("%d/%m/%Y",  "DD/MM/YYYY"),       # e.g. '09/12/2025'
+    ("%m/%d/%Y",  "MM/DD/YYYY"),       # e.g. '12/09/2025'
+]
+
+
+def parse_datetime(value):
+    """
+    Parse a datetime string, handling both ISO 8601 and known non-standard formats.
+
+    Tries datetime.fromisoformat() first, then falls back through a list of
+    common patterns. Returns None (with a warning) if nothing matches.
+
+    Parameters
+    ----------
+    value : str or None
+
+    Returns
+    -------
+    datetime or None
+    """
+    if value is None:
+        return None
+
+    try:
+        return datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        pass
+
+    # Normalise to uppercase so %p matches both 'am'/'pm' and 'AM'/'PM'
+    normalised = value.strip().upper()
+    for fmt, _ in _DATETIME_FALLBACKS:
+        try:
+            return datetime.strptime(normalised, fmt)
+        except ValueError:
+            continue
+
+    logger.warning(f"Could not parse datetime {value!r} — stored as None")
+    return None
 
 def number_to_well(n):
     """

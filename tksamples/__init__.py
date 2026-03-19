@@ -1,20 +1,19 @@
 """
-tksamples: UV-Vis Spectroscopy and Thin Film Sample Analysis
+tksamples: Sample and Dataset management with Crucible integration.
 
-This package provides tools for UV-Vis spectroscopy analysis of thin film samples,
-with support for HDF5 data processing, Crucible API integration, and automated
-sample characterization workflows.
+Provides core classes for working with samples, datasets, and collections
+backed by the Crucible data lakehouse (via nano-crucible).
 """
 
 import logging
 
-# Configuration and utilities (from nano-crucible)
-from .crucible import get_crucible_api_key, create_config_file, get_config_file_path
+# Configuration utilities — imported directly from nano-crucible
+from crucible.config import get_crucible_api_key, create_config_file, get_config_file_path
 
 # Core classes
 from .sample import Sample
-from .collection import SampleCollection
-from .samples import Samples
+from .dataset import Dataset
+from .collection import SampleCollection, DatasetCollection, FieldSpec
 
 # Data reading and measurements
 from .measurements import Measurement, NirvanaUVVis, TFImage
@@ -27,16 +26,30 @@ __author__ = "roncofaber"
 
 __all__ = [
     "Sample",
+    "Dataset",
     "SampleCollection",
-    "Samples",
+    "DatasetCollection",
+    "FieldSpec",
     "Measurement",
     "NirvanaUVVis",
     "TFImage",
     "get_crucible_api_key",
     "create_config_file",
     "get_config_file_path",
-    "setup_logging"
+    "setup_logging",
 ]
+
+
+class _TqdmHandler(logging.StreamHandler):
+    """Log handler that writes through tqdm.write() to avoid clashing with progress bars."""
+
+    def emit(self, record):
+        import sys
+        from tqdm import tqdm
+        try:
+            tqdm.write(self.format(record), file=sys.stderr)
+        except Exception:
+            self.handleError(record)
 
 
 def setup_logging(level=logging.INFO, format_string=None):
@@ -60,23 +73,14 @@ def setup_logging(level=logging.INFO, format_string=None):
     if format_string is None:
         format_string = '%(levelname)s | %(message)s'
 
-    # Configure the root logger for the tksamples package
     logger = logging.getLogger('tksamples')
     logger.setLevel(level)
-
-    # Remove existing handlers to avoid duplicates
     logger.handlers.clear()
 
-    # Create console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-
-    # Create formatter and add it to the handler
-    formatter = logging.Formatter(format_string)
-    console_handler.setFormatter(formatter)
-
-    # Add handler to logger
-    logger.addHandler(console_handler)
+    handler = _TqdmHandler()
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter(format_string))
+    logger.addHandler(handler)
 
     return logger
 

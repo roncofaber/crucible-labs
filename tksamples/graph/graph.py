@@ -17,22 +17,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def build_project_graph(samples):
-    
-    # Create directed graph
+def build_project_graph(resources):
+    """
+    Build a directed genealogy graph from any mix of Sample and Dataset objects.
+
+    Parameters
+    ----------
+    resources : iterable
+        Sample and/or Dataset objects. Each must expose .name, .mfid,
+        .kind, and .parents.
+
+    Returns
+    -------
+    nx.DiGraph
+        Nodes are resource objects; edges run from parent → child.
+    """
     G = nx.DiGraph()
 
-    # Add all samples as nodes
-    for sample in samples:
-        G.add_node(sample, name=sample.sample_name, type=sample.sample_type,
-                   mfid=sample.mfid)
+    resources = list(resources)
 
-    # Add edges based on parent-child relationships
-    for sample in samples:
-        for parent in sample.parents:
-            # Edge from parent to child
-            G.add_edge(parent, sample)
+    for resource in resources:
+        G.add_node(resource, name=resource.name, type=resource.kind,
+                   mfid=resource.mfid)
 
-    logger.info(f"Built genealogy graph with {G.number_of_nodes()} nodes and {G.number_of_edges()} edges")
+    for resource in resources:
+        for parent in resource.parents:
+            G.add_edge(parent, resource)
+
+    logger.info(f"Built project graph with {G.number_of_nodes()} nodes "
+                f"and {G.number_of_edges()} edges")
 
     return G

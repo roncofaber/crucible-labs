@@ -14,6 +14,7 @@ import logging
 
 # internal modules
 from tksamples.core import CruxObj
+from tksamples.models import BaseSample
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -21,107 +22,135 @@ logger = logging.getLogger(__name__)
 #%%
 
 class Sample(CruxObj):
-    
-    def __init__(self, dataset, measurements=None, **kwargs):
-        
-        # store dataset information of the sample
-        dataset = dataset.copy()
-        
-        self._dataset = dataset
-        
+
+    _dtype = "sample"
+
+    def __init__(self, dst_dict=None):
+
+        # store info using the pydantic model
+        self._sample = BaseSample.model_validate(dst_dict)
+
+        self._datasets = []  # filled in by project._setup_graph
+
         # initialize parent class
-        super().__init__(mfid          = dataset["unique_id"],
-                         project_id    = dataset["project_id"],
-                         creation_time = dataset["date_created"],
-                         dtype         = "sample",
-                         )
+        super().__init__(
+            creation_time = self._sample.creation_time,
+            unique_id     = self._sample.unique_id,
+            project_id    = self._sample.project_id,
+            owner_orcid   = self._sample.owner_orcid,
+            owner_user_id = self._sample.owner_user_id,
+        )
 
-        # Set to track measurement types
+        # loaded measurements keyed by mtype — populated by dataset.load()
         self._measurements = {}
-        self._mtypes       = {}
-        if measurements is not None:
-            for measurement in measurements.copy():
-                self.add_measurement(measurement)
 
-        # Initialize parent/child relationships for genealogy tracking
-        self._parents = []
+        # parent/child relationships for genealogy tracking
+        self._parents  = []
         self._children = []
-
-        return
     
     @property
     def sample_name(self):
-        return self._dataset["sample_name"]
+        return self._sample.sample_name
     
+    @property
+    def name(self):
+        return self._sample.sample_name
+
     @property
     def sample_type(self):
-        return self._dataset["sample_type"]
+        return self._sample.sample_type
+
+    @property
+    def dtype(self):
+        return self._sample.sample_type
     
     @property
-    def idx(self):
-        return int(self.sample_name[2:])
-    
+    def datasets(self):
+        """Dataset objects linked to this sample."""
+        return self._datasets
+
+    def add_dataset(self, dataset, _skip_reciprocal=False):
+        """Link a Dataset object to this sample (bidirectional)."""
+        if dataset not in self._datasets:
+            self._datasets.append(dataset)
+            if not _skip_reciprocal:
+                dataset.add_sample(self, _skip_reciprocal=True)
+
     @property
     def description(self):
-        return self._dataset["description"]
+        return self._sample.description
     
-    def add_measurement(self, new_measurement):
-        """Add a measurement to thin film."""
-        
-        # assign measurement
-        new_measurement._assign_to_sample(self)
-        
-        # add to data structure
-        self._measurements[new_measurement.mtype] = new_measurement
-        self._mtypes[new_measurement.mtype] = new_measurement
-        
-        return
+    @staticmethod
+    def _resolve_attr(m, attr, sample):
+        """Resolve an attribute across measurement, dataset, or sample level.
 
-    def get_measurements(self, mtype=""):
-        """Get all measurements filtered by type."""
-        if mtype:
-            return {key: value for key, value in self._measurements.items() if value.mtype == mtype}
-        return self._measurements
-    
+        Prefix rules:
+        - ``"dataset.<attr>"``  → look on ``m.dataset``
+        - ``"sample.<attr>"``   → look on ``sample``
+        - ``"<attr>"``          → look on ``m`` (measurement level, default)
+        """
+        if attr.startswith("dataset."):
+            return getattr(m.dataset, attr[8:], None)
+        if attr.startswith("sample."):
+            return getattr(sample, attr[7:], None)
+        return getattr(m, attr, None)
+
+    def get_measurements(self, mtype=None, exclude=None, include=None):
+        """
+        Return loaded measurements with optional filtering.
+
+        Parameters
+        ----------
+        mtype : str, optional
+            Keep only measurements with this mtype (e.g. ``"uvvis"``).
+        exclude : dict, optional
+            ``{attr: substring}`` — drop measurements where the resolved
+            attribute contains ``substring`` (case-insensitive).
+        include : dict, optional
+            ``{attr: substring}`` — keep only measurements where the resolved
+            attribute contains ``substring`` (case-insensitive).
+
+        Attribute resolution order (use dot-prefix to be explicit):
+            - ``"dataset.session"``    → dataset attribute
+            - ``"sample.sample_type"`` → sample attribute
+            - ``"tray_well"``          → measurement attribute (default)
+        """
+        result = list(self._measurements.values())
+        if mtype is not None:
+            result = [m for m in result if m.mtype == mtype]
+        for attr, pattern in (exclude or {}).items():
+            p = pattern.lower()
+            result = [m for m in result
+                      if p not in (self._resolve_attr(m, attr, self) or "").lower()]
+        for attr, pattern in (include or {}).items():
+            p = pattern.lower()
+            result = [m for m in result
+                      if p in (self._resolve_attr(m, attr, self) or "").lower()]
+        return result
+
+    def assign_measurement(self, measurement, _skip_reciprocal=False):
+        """Link a Measurement to this sample (bidirectional)."""
+        self._measurements[measurement.unique_id] = measurement
+        if not _skip_reciprocal:
+            measurement.assign_sample(self, _skip_reciprocal=True)
+
     @property
     def measurements(self):
         return list(self._measurements.values())
 
     def add_parent(self, parent_sample, _skip_reciprocal=False):
-        """
-        Add a parent sample to this sample's genealogy (bidirectional).
-
-        Automatically adds this sample as a child to the parent.
-
-        Parameters
-        ----------
-        parent_sample : Sample
-            The parent sample object (e.g., a precursor solution)
-        """
+        """Add a parent sample to this sample's genealogy (bidirectional)."""
         if parent_sample not in self._parents:
             self._parents.append(parent_sample)
-            
             if not _skip_reciprocal:
                 parent_sample.add_child(self, _skip_reciprocal=True)
-        return
 
     def add_child(self, child_sample, _skip_reciprocal=False):
-        """
-        Add a child sample to this sample's genealogy (bidirectional).
-
-        Automatically adds this sample as a parent to the child.
-
-        Parameters
-        ----------
-        child_sample : Sample
-            The child sample object (e.g., a thin film derived from this sample)
-        """
+        """Add a child sample to this sample's genealogy (bidirectional)."""
         if child_sample not in self._children:
             self._children.append(child_sample)
-
             if not _skip_reciprocal:
                 child_sample.add_parent(self, _skip_reciprocal=True)
-        return
 
     @property
     def parents(self):
@@ -132,92 +161,56 @@ class Sample(CruxObj):
     def children(self):
         """Get list of direct child samples."""
         return self._children
-
-    def get_all_ancestors(self):
-        """
-        Get all ancestor samples by traversing parent relationships.
-
-        Recursively traverses parent links to find all ancestors
-        (parents, grandparents, etc.).
-
-        Returns
-        -------
-        list of Sample
-            List of all ancestor samples
-
-        Examples
-        --------
-        >>> sample = project["TF0001"]
-        >>> ancestors = sample.get_all_ancestors()
-        >>> print(f"Found {len(ancestors)} ancestors")
-        """
+    
+    @property
+    def ancestors(self):
+        """Get all ancestor samples by traversing parent relationships."""
         ancestors = []
         visited = set()
         queue = list(self._parents)
-
         while queue:
             current = queue.pop(0)
             if id(current) not in visited:
                 visited.add(id(current))
                 ancestors.append(current)
                 queue.extend(current.parents)
-
         return ancestors
-
-    def get_all_descendants(self):
-        """
-        Get all descendant samples by traversing child relationships.
-
-        Recursively traverses child links to find all descendants
-        (children, grandchildren, etc.).
-
-        Returns
-        -------
-        list of Sample
-            List of all descendant samples
-
-        Examples
-        --------
-        >>> solution = project["SOL0001"]
-        >>> descendants = solution.get_all_descendants()
-        >>> print(f"Solution produced {len(descendants)} descendants")
-        """
+    
+    @property
+    def descendants(self):
+        """Get all descendant samples by traversing child relationships."""
         descendants = []
         visited = set()
         queue = list(self._children)
-
         while queue:
             current = queue.pop(0)
             if id(current) not in visited:
                 visited.add(id(current))
                 descendants.append(current)
                 queue.extend(current.children)
-
         return descendants
 
-    @property
-    def dataset(self):
-        return self._dataset
-    
-    @property
-    def datasets(self):
-        return self._dataset["datasets"]
-        
-    def __repr__(self): #make it pretty
-        return f"{self.__class__.__name__}({self.sample_name})"
-    
-    def __getattr__(self, key):
-        # This is called when an attribute isn't found normally
-        if key in self._mtypes:
-            return self._mtypes[key]
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{key}'")
-    
     def view(self):
+        for m in self._measurements.values():
+            if m.mtype == "image" and m.image is not None:
+                m.view()
+                return
+        has_image_dataset = any(d.dtype == "sample well image" for d in self._datasets)
+        if has_image_dataset:
+            logger.warning(f"Image dataset found for {self.sample_name!r} but not loaded — call load_measurements('sample well image') first.")
+        else:
+            logger.info(f"No image dataset linked to {self.sample_name!r}.")
 
-        if self.image is None:
-            logger.info(f"No image associated with {self.sample_name}")
-            return
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name!r})"
 
-        self.image.image.show()
-
-        
+    def __getattr__(self, name):
+        if name == "_sample":
+            raise AttributeError("_sample not initialized")
+        matches = [m for m in self._measurements.values() if m.mtype == name]
+        if matches:
+            return matches[0] if len(matches) == 1 else matches
+        try:
+            return getattr(self._sample, name)
+        except AttributeError:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")

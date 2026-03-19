@@ -15,8 +15,9 @@ import qrcode
 import webbrowser
 from datetime import datetime, timezone
 
-# import client setup (safe from circular imports)
-from tksamples.crucible.client import setup_crux_client
+# import client from nano-crucible
+from crucible.config import get_client
+from tksamples.utils.auxiliary import parse_datetime
 
 #%%
 
@@ -29,36 +30,23 @@ dtype2ext = {
 class CruxObj(object):
 
     # Class variable for the client
-    _client = setup_crux_client()
+    _client = get_client()
     
-    __slots__ = ["_dtype", "_unique_id", "_creation_time", "_project_id"]
-
+    __slots__ = ["_creation_time", "_qr_code", "_unique_id", "_project_id", "_owner_orcid", "_owner_user_id"]
     
-    def __init__(self, mfid=None, dtype=None, creation_time=None,
-                 project_id=None):
+    def __init__(self, creation_time=None, unique_id=None, project_id=None,
+                 owner_orcid=None, owner_user_id=None, **kwargs):
         
-        # add data type
-        self._dtype     = dtype
-        self._unique_id = mfid
-        if creation_time is not None:
-            self._creation_time = datetime.fromisoformat(creation_time)
-        else:
-            self._creation_time = None
+        self._unique_id = unique_id
         self._project_id = project_id
+        self._owner_orcid = owner_orcid
+        self._owner_user_id = owner_user_id
         
+        self._creation_time = parse_datetime(creation_time)
+            
         # initialize QR code
         self._qr_code = qrcode.QRCode(border=1)
         self._qr_code.add_data(self.mfid)
-        
-        return
-    
-    @property
-    def client(self):
-        return self._client  # Return the shared client
-    
-    @property
-    def mfid(self):
-        return self._unique_id
     
     @property
     def unique_id(self):
@@ -69,23 +57,48 @@ class CruxObj(object):
         return self._project_id
     
     @property
+    def owner_orcid(self):
+        return self._owner_orcid
+    
+    @property
+    def owner_user_id(self):
+        return self._owner_user_id
+
+    @property
+    def client(self):
+        return self._client
+
+    @property
+    def mfid(self):
+        return self._unique_id  # no longer relies on subclass
+    
+    @property
     def print_qr(self):
         self._qr_code.print_ascii(invert=True)
     
+    # Subclasses set this to 'sample' or 'dataset' for graph explorer links
+    _dtype = None
+
+    @property
+    def kind(self):
+        return self._dtype
+
     @property
     def link(self):
         from crucible.config import config
         crux_explorer = config.graph_explorer_url.rstrip('/')
-        url = f"{crux_explorer}/{self.project_id}/{dtype2ext[self._dtype]}/{self.mfid}"
+        ext = dtype2ext.get(self._dtype, "")
+        url = f"{crux_explorer}/{self._project_id}/{ext}/{self.mfid}"
         return url
-    
+
     def open_in_browser(self):
         webbrowser.open(self.link)
-        return
-    
+
     @property
     def age(self):
-        """Returns the age of the object as a timedelta"""
+        """Returns the age of the object as a timedelta, or None if creation_time is unknown."""
+        if self._creation_time is None:
+            return None
         if self._creation_time.tzinfo is None:
             now = datetime.now()
         else:
