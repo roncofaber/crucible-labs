@@ -29,11 +29,6 @@ dtype2ext = {
 
 class CruxObj(object):
 
-    # Class variable for the client
-    _client = get_client()
-    
-    __slots__ = ["_creation_time", "_qr_code", "_unique_id", "_project_id", "_owner_orcid", "_owner_user_id"]
-    
     def __init__(self, creation_time=None, unique_id=None, project_id=None,
                  owner_orcid=None, owner_user_id=None, **kwargs):
         
@@ -66,13 +61,12 @@ class CruxObj(object):
 
     @property
     def client(self):
-        return self._client
+        return get_client()
 
     @property
     def mfid(self):
         return self._unique_id  # no longer relies on subclass
     
-    @property
     def print_qr(self):
         self._qr_code.print_ascii(invert=True)
     

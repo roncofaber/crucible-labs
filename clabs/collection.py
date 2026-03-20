@@ -12,6 +12,7 @@ Created on Thu Feb  6 2026
 """
 
 import logging
+from datetime import timedelta
 from crucible.config import get_client
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,6 @@ class FieldSpec:
 class CrucibleCollection:
     """Base class for Sample and Dataset collections."""
 
-    _client    = get_client()
     _itemtype  = "items"
 
     def __init__(self, items, project_id=None):
@@ -70,7 +70,7 @@ class CrucibleCollection:
 
     @property
     def client(self):
-        return self._client
+        return get_client()
 
     @property
     def project_id(self):
@@ -246,7 +246,7 @@ class SampleCollection(CrucibleCollection):
             matches = [d for d in source.datasets if d.dtype == mtype]
             if not matches:
                 return {}
-            sm = sorted(matches, key=lambda d: d.age)[0].scientific_metadata
+            sm = sorted(matches, key=lambda d: d.age if d.age is not None else timedelta.max)[0].scientific_metadata
             if not sm:
                 return {}
             return {key.split(".")[-1]: _get_nested(sm, key) for key in keys}

@@ -24,8 +24,6 @@ import networkx as nx
 
 class CrucibleProject:
 
-    _client = get_client()
-
     def __init__(self, project_id, cache_dir=None, use_cache=True,
                  overwrite_cache=False):
 
@@ -55,7 +53,7 @@ class CrucibleProject:
 
     @property
     def client(self):
-        return self._client
+        return get_client()
 
     @property
     def project_id(self):
@@ -104,7 +102,7 @@ class CrucibleProject:
         raw = self.client.datasets.list(
             project_id       = project_id,
             include_metadata = True,
-            limit            = 1e8,
+            limit            = int(1e8),
         )
 
         datasets = []
@@ -249,7 +247,8 @@ class CrucibleProject:
         sample_type : str, optional
             If given, only process datasets belonging to samples of this type.
         """
-        import clabs.measurements  # ensures loaders are registered
+        from clabs.measurements import register_loaders
+        register_loaders()  # ensures all built-in loaders are registered
         self._get_measurement_data(
             measurement_type = measurement_type,
             description      = measurement_type,

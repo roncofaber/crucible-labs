@@ -11,6 +11,7 @@ Created on Fri Jan 16 18:22:21 2026
 @author: roncofaber
 """
 
+import os
 import logging
 
 # internal modules
@@ -96,8 +97,8 @@ class Dataset(CruxObj):
         return self._children
 
     @property
-    def measurement(self):
-        """Loaded measurement. Returns a single object or a list for multi-spot datasets."""
+    def data(self):
+        """Loaded measurement data. Returns a single object or a list for multi-spot datasets."""
         if len(self._measurements) == 0:
             return None
         if len(self._measurements) == 1:
@@ -113,15 +114,22 @@ class Dataset(CruxObj):
         """Register a loader callable for a given measurement type string."""
         cls._loaders[mtype] = loader
 
+    @staticmethod
+    def _list_local_files(dataset_dir):
+        """Return full file paths in dataset_dir, or [] if missing/empty."""
+        if os.path.isdir(dataset_dir) and os.listdir(dataset_dir):
+            return [os.path.join(dataset_dir, f) for f in os.listdir(dataset_dir)]
+        return []
+
     def prefetch(self, client, cache_dir, overwrite_existing=False):
         """
         Download dataset files without parsing. Thread-safe: no shared state is touched.
         Call this in a thread pool before load() to overlap network I/O.
         """
-        import os
         dataset_dir = os.path.join(cache_dir, self.unique_id)
-        if os.path.isdir(dataset_dir) and os.listdir(dataset_dir) and not overwrite_existing:
-            self._files = [os.path.join(dataset_dir, f) for f in os.listdir(dataset_dir)]
+        local = self._list_local_files(dataset_dir)
+        if local and not overwrite_existing:
+            self._files = local
         else:
             self._files = client.datasets.download(
                 self.unique_id,
@@ -136,8 +144,6 @@ class Dataset(CruxObj):
         If prefetch() was called beforehand, uses those files directly.
         Otherwise falls back to downloading inline.
         """
-        import os
-
         loader = self._loaders.get(self.dtype)
         if loader is None:
             raise NotImplementedError(f"No loader registered for dtype {self.dtype!r}")
@@ -147,8 +153,9 @@ class Dataset(CruxObj):
             files = self._files
         else:
             dataset_dir = os.path.join(cache_dir, self.unique_id)
-            if use_cache and not overwrite_existing and os.path.isdir(dataset_dir) and os.listdir(dataset_dir):
-                files = [os.path.join(dataset_dir, f) for f in os.listdir(dataset_dir)]
+            local = self._list_local_files(dataset_dir)
+            if use_cache and not overwrite_existing and local:
+                files = local
             else:
                 files = client.datasets.download(
                     self.unique_id,
@@ -190,7 +197,7 @@ class Dataset(CruxObj):
                     continue
             m.assign_sample(sample)
 
-        return self.measurement
+        return self.data
 
     @property
     def session(self):
@@ -212,7 +219,7 @@ class Dataset(CruxObj):
     @property
     def dtype(self):
         return self._dataset.measurement
-    
+
     @property
     def scientific_metadata(self):
         return self._scientific_metadata

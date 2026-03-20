@@ -11,6 +11,7 @@ Created on Wed Jan  7 17:53:17 2026
 """
 
 import logging
+from collections import deque
 
 # internal modules
 from clabs.core import CruxObj
@@ -167,23 +168,23 @@ class Sample(CruxObj):
         """Get all ancestor samples by traversing parent relationships."""
         ancestors = []
         visited = set()
-        queue = list(self._parents)
+        queue = deque(self._parents)
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             if id(current) not in visited:
                 visited.add(id(current))
                 ancestors.append(current)
                 queue.extend(current.parents)
         return ancestors
-    
+
     @property
     def descendants(self):
         """Get all descendant samples by traversing child relationships."""
         descendants = []
         visited = set()
-        queue = list(self._children)
+        queue = deque(self._children)
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             if id(current) not in visited:
                 visited.add(id(current))
                 descendants.append(current)
