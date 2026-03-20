@@ -1,47 +1,38 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Quick Start Example
+Quick Start
 
-The absolute minimal code to get started with clabs.
-Choose your approach based on your needs.
-
-@author: roncofaber
+Minimal example to get started with clabs.
 """
 
-#%% APPROACH 1: Simple - Just load samples and measurements
-
-from clabs import Samples
-
-# Load thin film samples
-samples = Samples(project_id="10k_perovskites", sample_type="thin film")
-
-# Load measurements
-samples.get_uvvis_data()
-samples.get_well_images()
-
-# Access a sample
-sample = samples[0]
-print(sample.sample_name)
-
-#%% APPROACH 2: Full - Project with genealogy
-
+from clabs import FieldSpec as F
 from clabs.project import CrucibleProject
 
-# Load entire project
+#%% Load project and filter by sample type
+
 proj = CrucibleProject("10k_perovskites")
 
-# Get samples by type
-thin_films = proj.get_samples_collection("thin film")
-thin_films.get_uvvis_data()
+tfilms = proj.samples.filter(sample_type="thin film")
+print(f"Found {tfilms.nsamples} thin films")
 
-# Explore genealogy
-sample = thin_films[0]
-ancestors = proj.get_ancestors(sample)
-siblings = proj.get_siblings(sample)
+#%% Load measurements (downloaded and cached automatically)
 
-# Visualize
-from clabs.graph import plot_extended_family
-fig, ax = plot_extended_family(proj, sample)
+proj.load_measurements("pollux_oospec_multipos_line_scan")
+proj.load_measurements("sample well image")
 
-#%% That's it! See other examples for more details.
+#%% Build a metadata DataFrame with ancestor fields
+
+fields = {
+    "spin_run":                     ["precursor_solution_name", "heater_sv_temp"],
+    "Precursor Solution synthesis": F("target_stoichiometry", "mixing_ratio",
+                                      sample_type="precursor solution"),
+    "Stock Solution synthesis":     F("solvent", sample_type="stock solution"),
+}
+df = tfilms.to_dataframe(fields=fields, include_ancestors=True)
+print(df.head())
+
+#%% Filter measurements with exclusion rules
+
+uvvis = tfilms.get_measurements(mtype="uvvis", exclude={"dataset.session": "RGA"})
+print(f"UV-Vis measurements: {len(uvvis)}")

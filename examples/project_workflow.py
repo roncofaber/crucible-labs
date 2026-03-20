@@ -1,82 +1,60 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CrucibleProject Workflow Example
+CrucibleProject Workflow
 
-Demonstrates how to use the CrucibleProject class to work with the entire
-project, including genealogy tracking, sample type filtering, and graph
-visualization.
-
-Created on Thu Feb 6 2026
-@author: roncofaber
+Demonstrates how to use CrucibleProject to work with the full project:
+genealogy tracking, sample type filtering, and graph visualization.
 """
 
-import clabs
-clabs.setup_logging(level=100)  # Suppress most logging
 from clabs.project import CrucibleProject
 
 #%% Load the entire project
 
-project_id = "10k_perovskites"
-proj = CrucibleProject(project_id)
+proj = CrucibleProject("10k_perovskites")
 
-print(f"Loaded project with {proj.nsamples} samples")
-print(f"Sample types in project: {proj.sample_types}")
+print(f"Loaded project: {proj.title!r}")
+print(f"Total samples: {len(proj.samples)}")
+print(f"Sample types: {proj.samples.sample_types}")
 
-#%% Get samples by type
+#%% Filter by sample type
 
-# Get all thin films as a Samples collection (enables measurement loading)
-thin_films = proj.get_samples_collection("thin film")
-print(f"Found {thin_films.nsamples} thin films")
+tfilms = proj.samples.filter(sample_type="thin film")
+print(f"Found {tfilms.nsamples} thin films")
 
-# Get precursor solutions
-precursor_solutions = proj.get_samples_collection('precursor solution')
+precursor_solutions = proj.samples.filter(sample_type="precursor solution")
 print(f"Found {precursor_solutions.nsamples} precursor solutions")
 
-#%% Load measurements for thin films
+#%% Load measurements
 
-# Now you can use all the Samples methods on the filtered collection
-thin_films.get_uvvis_data()
-thin_films.get_well_images()
+proj.load_measurements("pollux_oospec_multipos_line_scan")
+proj.load_measurements("sample well image")
 
-#%% Work with individual samples
+#%% Access individual samples
 
-# Access samples by index
-tf = thin_films[0]
+tf = tfilms[0]
 print(f"Sample: {tf.sample_name}")
+print(f"Measurements: {len(tf.measurements)}")
 
-# Or by name/ID from the project
-tf = proj["TF000001"]  # by name
-# tf = proj[sample_unique_id]  # or by ID
+# By name or ID
+tf = proj["TF000001"]
 
-#%% Explore genealogy - direct relationships
+#%% Explore genealogy — direct relationships
 
-# Get direct parents and children
-print(f"Direct parents: {[p.sample_name for p in tf.parents]}")
+print(f"Direct parents:  {[p.sample_name for p in tf.parents]}")
 print(f"Direct children: {[c.sample_name for c in tf.children]}")
+print(f"All ancestors:   {len(tf.ancestors)}")
 
-# Get all ancestors (recursive)
-ancestors = tf.get_all_ancestors()
-print(f"Total ancestors: {len(ancestors)}")
+#%% Explore genealogy — graph-based queries
 
-#%% Explore genealogy - graph-based queries
-
-# Get all ancestors using the project graph (more efficient for complex queries)
-ancestors = proj.get_ancestors(tf)
-print(f"Ancestors from graph: {len(ancestors)}")
-
-# Get all descendants
+ancestors   = proj.get_ancestors(tf)
 descendants = proj.get_descendants(tf)
-print(f"Descendants: {len(descendants)}")
+siblings    = proj.get_siblings(tf)
+print(f"Ancestors: {len(ancestors)}, Descendants: {len(descendants)}, Siblings: {len(siblings)}")
 
-# Get siblings (samples sharing parents)
-siblings = proj.get_siblings(tf)
-print(f"Siblings: {len(siblings)}")
-
-# Find common ancestors between two samples
-tf2 = proj["TF000002"]
+tf2    = proj["TF000002"]
 common = proj.get_common_ancestors(tf, tf2)
-print(f"Common ancestors: {len(common)}")
+print(f"Common ancestors with TF000002: {len(common)}")
 
 #%% Visualize genealogy
 
@@ -86,28 +64,17 @@ from clabs.graph import (
     plot_descendants,
     plot_connected_component,
     plot_extended_family,
-    plot_full_graph
+    plot_full_graph,
 )
 
-# Plot just direct relationships (parents and children)
 fig, ax = plot_direct_neighbors(proj, tf)
-
-# Plot all ancestors
 fig, ax = plot_ancestors(proj, tf)
-
-# Plot all descendants
 fig, ax = plot_descendants(proj, tf)
-
-# Plot complete lineage (ancestors + descendants)
 fig, ax = plot_connected_component(proj, tf)
-
-# Plot extended family (siblings, cousins, etc. - everything connected)
 fig, ax = plot_extended_family(proj, tf)
-
-# Plot the entire project graph
 fig, ax = plot_full_graph(proj)
 
 #%% Save a plot
 
 fig, ax = plot_extended_family(proj, tf)
-fig.savefig('sample_extended_family.png', dpi=300, bbox_inches='tight')
+fig.savefig("sample_extended_family.png", dpi=300, bbox_inches="tight")

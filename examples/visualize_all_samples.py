@@ -1,39 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Sample Grid Visualization Example
+Sample Grid Visualization
 
-Demonstrates how to create a grid visualization of all sample well images.
-
-Created on Fri Jan 30 14:32:30 2026
-@author: roncofaber
+Creates a grid of all thin film well images arranged to approximate a 16:9
+aspect ratio.
 """
 
-# Load relevant modules
-from clabs import Samples  # Import the Samples class from the clabs package
-import matplotlib.pyplot as plt
+from clabs.project import CrucibleProject
+from clabs.plot import plot_tfilms_grid
 
-#%%
-# Initialize the Samples object
-# Use cache to avoid redundant downloads and set overwrite_cache to False
-samples = Samples(use_cache=True, overwrite_cache=False, from_crucible=True,
-                  project_id="10k_perovskites", sample_type="thin film")
+#%% Load project and thin films
 
-# # Retrieve well images for the thin films
-samples.get_well_images()
+proj = CrucibleProject("10k_perovskites")
+tfilms = proj.samples.filter(sample_type="thin film")
 
-#%% Plot the grid
+#%% Load well images
 
-from clabs.plot.tfgrid import plot_tfilms_grid
+proj.load_measurements("sample well image")
 
-fig_width = 16
-target_ratio = 16/9
+#%% Plot grid
 
-fig = plot_tfilms_grid(samples, target_ratio=target_ratio, fig_width=fig_width,
-                       show_label=False)
+fig = plot_tfilms_grid(tfilms, target_ratio=16/9, fig_width=16, show_label=False)
 
+#%% Save
 
-#%% To save the figure:
-    
-fig.savefig('all_tfilm_images_16x9.png', dpi=200, bbox_inches=None,
-            facecolor='black', edgecolor='none', pad_inches=0)
+fig.savefig("all_tfilm_images_16x9.png", dpi=200, bbox_inches=None,
+            facecolor="black", edgecolor="none", pad_inches=0)
