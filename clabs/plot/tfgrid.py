@@ -70,9 +70,12 @@ def plot_tfilms_grid(
     # Collect images + indices
     images_data, valid_idxs = [], []
     for cc, tf in enumerate(tfilms):
-        if getattr(tf, "image", None) is None:
+        img_obj = getattr(tf, "image", None)
+        if img_obj is None:
             continue
-        images_data.append(np.array(tf.image.image))
+        if isinstance(img_obj, list):
+            img_obj = img_obj[0]
+        images_data.append(np.array(img_obj.image))
         valid_idxs.append(cc)
 
     nimages = len(images_data)

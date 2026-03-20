@@ -93,7 +93,7 @@ def plot_direct_neighbors(project, sample, figsize=None, node_size=None,
                            arrowsize=20, arrowstyle='->', width=2, ax=ax)
 
     # Add labels
-    labels = {node: node.sample_name for node in subgraph.nodes()}
+    labels = {node: node.name for node in subgraph.nodes()}
     nx.draw_networkx_labels(subgraph, pos, labels, font_size=font_size, ax=ax)
 
     ax.set_title(f"Direct Neighbors of {sample.sample_name}\n({len(parents)} parents, {len(children)} children)")
@@ -181,7 +181,7 @@ def plot_ancestors(project, sample, figsize=None, node_size=None,
                            arrowsize=15, arrowstyle='->', width=2, ax=ax)
 
     # Add labels
-    labels = {node: node.sample_name for node in subgraph.nodes()}
+    labels = {node: node.name for node in subgraph.nodes()}
     nx.draw_networkx_labels(subgraph, pos, labels, font_size=font_size, ax=ax)
 
     ax.set_title(f"Ancestors of {sample.sample_name} ({len(ancestors)} ancestors)")
@@ -269,7 +269,7 @@ def plot_descendants(project, sample, figsize=None, node_size=None,
                            arrowsize=15, arrowstyle='->', width=2, ax=ax)
 
     # Add labels
-    labels = {node: node.sample_name for node in subgraph.nodes()}
+    labels = {node: node.name for node in subgraph.nodes()}
     nx.draw_networkx_labels(subgraph, pos, labels, font_size=font_size, ax=ax)
 
     ax.set_title(f"Descendants of {sample.sample_name} ({len(descendants)} descendants)")
@@ -357,7 +357,7 @@ def plot_connected_component(project, sample, figsize=None, node_size=None,
                            arrowsize=15, arrowstyle='->', width=2, ax=ax)
 
     # Add labels
-    labels = {node: node.sample_name for node in subgraph.nodes()}
+    labels = {node: node.name for node in subgraph.nodes()}
     nx.draw_networkx_labels(subgraph, pos, labels, font_size=font_size, ax=ax)
 
     ax.set_title(f"Full Lineage Tree of {sample.sample_name}\n"
@@ -453,7 +453,7 @@ def plot_extended_family(project, sample, figsize=None, node_size=None,
                            arrowsize=15, arrowstyle='->', width=2, ax=ax)
 
     # Add labels
-    labels = {node: node.sample_name for node in subgraph.nodes()}
+    labels = {node: node.name for node in subgraph.nodes()}
     nx.draw_networkx_labels(subgraph, pos, labels, font_size=font_size, ax=ax)
 
     ax.set_title(f"Extended Family Tree of {sample.sample_name}\n"
@@ -522,26 +522,26 @@ def plot_full_graph(project, figsize=None, node_size=None, font_size=None,
 
     node_colors = []
     for node in graph.nodes():
-        sample_type = node.sample_type
-        node_colors.append(sample_type_colors.get(sample_type, '#95a5a6'))  # Gray for unknown
+        node_colors.append(sample_type_colors.get(node.dtype, '#95a5a6'))  # Gray for unknown
 
     # Draw the graph
     nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=node_size, ax=ax)
     nx.draw_networkx_edges(graph, pos, edge_color='gray', arrows=True,
                            arrowsize=10, arrowstyle='->', ax=ax)
 
-    # Add labels (sample names)
-    labels = {node: node.sample_name for node in graph.nodes()}
+    # Add labels
+    labels = {node: node.name for node in graph.nodes()}
     nx.draw_networkx_labels(graph, pos, labels, font_size=font_size, ax=ax)
 
     # Add legend
     from matplotlib.patches import Patch
+    node_types = {node.dtype for node in graph.nodes()}
     legend_elements = [Patch(facecolor=color, label=stype)
                       for stype, color in sample_type_colors.items()
-                      if stype in project.sample_types]
+                      if stype in node_types]
     ax.legend(handles=legend_elements, loc='upper right')
 
-    ax.set_title(f"Full Genealogy Graph ({graph.number_of_nodes()} samples, {graph.number_of_edges()} edges)")
+    ax.set_title(f"Full Genealogy Graph ({graph.number_of_nodes()} nodes, {graph.number_of_edges()} edges)")
     ax.axis('off')
     plt.tight_layout()
 
@@ -753,12 +753,12 @@ def _sort_nodes_by_parent_position(nodes, graph, pos):
         parents = list(graph.predecessors(node))
         if not parents:
             # No parents, sort by name
-            return (0, node.sample_name)
+            return (0, node.name)
         # Average x position of parents
         parent_xs = [pos[p][0] for p in parents if p in pos]
         if parent_xs:
-            return (sum(parent_xs) / len(parent_xs), node.sample_name)
+            return (sum(parent_xs) / len(parent_xs), node.name)
         else:
-            return (0, node.sample_name)
+            return (0, node.name)
 
     return sorted(nodes, key=get_parent_avg_x)
