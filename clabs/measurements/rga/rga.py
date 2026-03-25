@@ -26,10 +26,15 @@ logger = logging.getLogger(__name__)
 # Private parsing helpers
 # ---------------------------------------------------------------------------
 
-def _find_file(files, pattern):
-    """Return first file whose basename matches *pattern* (regex), or None."""
+def _find_file(files, pattern, ext=None):
+    """Return first file whose basename matches *pattern* (regex), or None.
+    Optionally restrict to files with the given extension (e.g. '.txt').
+    """
     for f in files:
-        if re.search(pattern, os.path.basename(f)):
+        bn = os.path.basename(f)
+        if ext and not bn.lower().endswith(ext):
+            continue
+        if re.search(pattern, bn):
             return f
     return None
 
@@ -196,8 +201,8 @@ class RGAMeasurement(Measurement):
     @classmethod
     def load(cls, dataset, files):
         """Parse raw TEY + RGA histogram files and return an RGAMeasurement."""
-        tey_file = _find_file(files, r'_TEY_')
-        rga_file = _find_file(files, r'_RGA_histogram_')
+        tey_file = _find_file(files, r'_TEY_',           ext='.txt')
+        rga_file = _find_file(files, r'_RGA_histogram_', ext='.txt')
 
         if tey_file is None:
             logger.warning(f"No TEY file for dataset {dataset.name!r}")
