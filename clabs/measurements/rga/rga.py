@@ -42,7 +42,7 @@ def _find_file(files, pattern, ext=None):
 def _extract_float(text, pattern):
     """Return float from first capture group of *pattern* in *text*, or None."""
     m = re.search(pattern, text)
-    return float(m.group(1)) if m else None
+    return float(m.group(1).rstrip('.')) if m else None
 
 
 def _parse_tey_file(path):
