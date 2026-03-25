@@ -7,9 +7,9 @@ register_loaders(), which can also be called explicitly.
 """
 
 from .measurement import Measurement
-from .uvvis import NirvanaUVVis, load_uvvis
-from .image import TFImage, load_image
-from .rga import RGAMeasurement, load_rga
+from .uvvis import NirvanaUVVis
+from .image import TFImage
+from .rga import RGAMeasurement
 
 
 def register_loaders():
@@ -19,9 +19,9 @@ def register_loaders():
     ensure loaders are registered (e.g. in tests or custom pipelines).
     """
     from clabs.dataset import Dataset
-    Dataset.register_loader("pollux_oospec_multipos_line_scan", load_uvvis)
-    Dataset.register_loader("sample well image",                load_image)
-    Dataset.register_loader("automated_RGA_TEY_run",            load_rga)
+    Dataset.register_loader("pollux_oospec_multipos_line_scan", NirvanaUVVis.load)
+    Dataset.register_loader("sample well image",                TFImage.load)
+    Dataset.register_loader("automated_RGA_TEY_run",            RGAMeasurement.load)
 
 
 register_loaders()

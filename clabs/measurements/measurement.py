@@ -81,6 +81,17 @@ class Measurement:
         """Unique ID of the sample this measurement belongs to."""
         return None
 
+    # to be implemented by subclasses
+
+    @classmethod
+    def load(cls, dataset, files):
+        """Parse downloaded files and return one instance (or a list for multi-spot).
+
+        Registered with Dataset.register_loader() so Dataset.load() can
+        dispatch by measurement type. Must be overridden in every subclass.
+        """
+        raise NotImplementedError(f"{cls.__name__} must implement load(dataset, files)")
+
     # misc methods
 
     def __repr__(self):

@@ -11,8 +11,13 @@ Created on Mon Dec 22 10:42:15 2025
 @author: roncofaber
 """
 
+import os
+import logging
+
 # numpy is my rock and scipy is my gospel
 import numpy as np
+
+logger = logging.getLogger(__name__)
 from scipy.integrate import simpson
 
 # internal modules
@@ -220,3 +225,26 @@ class NirvanaUVVis(Measurement):
     def plot_intensities(self, spots=None):
         self._plot_sample(value="cor_intensities", spots=spots)
         return
+
+    # Dataset names (or substrings) to skip — bad/duplicate runs
+    _BAD_DATASETS = {
+        "251218_130227_pollux_oospec_multipos_line_scan_TRAY3_4_1week",
+        "260107_151134_pollux_oospec_multipos_line_scan__TRAY3_4_4weeks",
+        "260109_111702_pollux_oospec_multipos_line_scan",
+        "260119_183317_pollux_oospec_multipos_line_scan",
+    }
+
+    @classmethod
+    def load(cls, dataset, files):
+        """Parse a UV-Vis dataset from downloaded files. Returns a list of NirvanaUVVis."""
+        if any(bad in dataset.name for bad in cls._BAD_DATASETS):
+            logger.debug(f"Skipping bad UV-Vis dataset {dataset.name!r}")
+            return None
+        h5_files = [f for f in files if f.endswith('.h5')]
+        if not h5_files:
+            logger.warning(f"No .h5 file found for dataset {dataset.name!r}")
+            return None
+        corrected = [f for f in h5_files if "corrected" in os.path.basename(f).lower()]
+        h5file = corrected[0] if corrected else h5_files[0]
+        from clabs.measurements.uvvis.h5reader import h5_to_samples
+        return h5_to_samples(dataset, h5file)

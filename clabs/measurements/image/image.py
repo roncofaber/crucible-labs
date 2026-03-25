@@ -9,6 +9,7 @@ Created on Mon Jan 26 10:44:31 2026
 @author: roncofaber
 """
 
+import os
 import logging
 
 # image stuff
@@ -27,12 +28,9 @@ class TFImage(Measurement):
 
     _mtype = "image"
 
-    def __init__(self, image=None, dataset=None):
-
-        # initialize base Measurement (links back to the Dataset)
+    def __init__(self, dataset, image_path):
         super().__init__(dataset)
-
-        self.image = Image.open(image)
+        self.image = Image.open(image_path)
 
     @property
     def sample_name(self):
@@ -43,6 +41,18 @@ class TFImage(Measurement):
     def sample_mfid(self):
         sm = self._dataset.scientific_metadata
         return sm.get("sample_mfid") if sm else None
+
+    @classmethod
+    def load(cls, dataset, files):
+        """Open a well image from downloaded files. Returns a TFImage."""
+        image_exts = {'.jpeg', '.jpg', '.png', '.gif', '.bmp',
+                      '.tiff', '.tif', '.webp', '.heif', '.heic'}
+        img_files = [f for f in files
+                     if os.path.splitext(f)[1].lower() in image_exts]
+        if not img_files:
+            logger.warning(f"No image file found for dataset {dataset.name!r}")
+            return None
+        return cls(dataset, img_files[0])
 
     def view(self, console=False):
         """Display the image associated with the instance."""

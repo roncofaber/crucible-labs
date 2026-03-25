@@ -9,16 +9,13 @@ Created on Thu Feb  5 13:09:34 2026
 # internal modules
 from clabs import Sample, Dataset
 from clabs.collection import SampleCollection, DatasetCollection
-from clabs.graph.graph import build_project_graph
+from clabs.graph.graph import Graph
 from clabs.models import ProjectModel
 from crucible.config import get_client, get_cache_dir
 
 # Set up logger for this module
 import logging
 logger = logging.getLogger(__name__)
-
-# graph operations
-import networkx as nx
 
 #%%
 
@@ -180,7 +177,7 @@ class CrucibleProject:
                 sample.add_dataset(dataset)
 
         # unified graph: all samples and datasets as nodes
-        self._graph = build_project_graph(self._resources.values())
+        self._graph = Graph(self._resources.values())
 
     #%% measurement loading
 
@@ -256,57 +253,6 @@ class CrucibleProject:
             description      = measurement_type,
             sample_type      = sample_type,
         )
-
-    #%% graph genealogy helpers
-
-    def _resolve_sample(self, sample):
-        """Resolve a string name/id to a Sample object, or return as-is."""
-        if isinstance(sample, str):
-            result = self.get_sample(sample_id=sample, sample_name=sample)
-            if result is None:
-                logger.warning(f"Sample '{sample}' not found")
-            return result
-        return sample
-
-    def get_ancestors(self, sample):
-        """Get all ancestor samples using the project graph."""
-        sample = self._resolve_sample(sample)
-        if sample is None or sample not in self._graph:
-            return []
-        return list(nx.ancestors(self._graph, sample))
-
-    def get_descendants(self, sample):
-        """Get all descendant samples using the project graph."""
-        sample = self._resolve_sample(sample)
-        if sample is None or sample not in self._graph:
-            return []
-        return list(nx.descendants(self._graph, sample))
-
-    def get_common_ancestors(self, sample1, sample2):
-        """Find common ancestors of two samples."""
-        sample1 = self._resolve_sample(sample1)
-        sample2 = self._resolve_sample(sample2)
-        if sample1 is None or sample2 is None:
-            return []
-        if sample1 not in self._graph or sample2 not in self._graph:
-            return []
-        return list(nx.ancestors(self._graph, sample1) & nx.ancestors(self._graph, sample2))
-
-    def get_siblings(self, sample):
-        """Get sibling samples (samples sharing at least one parent)."""
-        sample = self._resolve_sample(sample)
-        if sample is None or sample not in self._graph:
-            return []
-        parents  = list(self._graph.predecessors(sample))
-        siblings = set()
-        for parent in parents:
-            siblings.update(self._graph.successors(parent))
-        siblings.discard(sample)
-        return list(siblings)
-
-    def get_samples_with_ancestor(self, ancestor):
-        """Get all samples descended from the given ancestor."""
-        return self.get_descendants(ancestor)
 
     #%% project metadata
 
