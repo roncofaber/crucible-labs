@@ -75,20 +75,19 @@ from clabs.project import CrucibleProject
 # Load full project with genealogy
 proj = CrucibleProject("10k_perovskites")
 
-# Get thin films as a Samples collection
-thin_films = proj.get_samples_collection("thin film")
+# Filter samples by type
+thin_films = proj.samples.filter(sample_type="thin film")
 
-# Now load measurements
-thin_films.get_uvvis_data()
-thin_films.get_well_images()
+# Load measurements
+proj.load_measurements("pollux_oospec_multipos_line_scan")
+proj.load_measurements("sample well image")
 
 # Work with genealogy
 sample = thin_films[0]
-ancestors = proj.get_ancestors(sample)
+ancestors = proj.graph.ancestors(sample)
 
 # Visualize
-from clabs.graph import plot_extended_family
-fig, ax = plot_extended_family(proj, sample)
+fig, ax = proj.graph.plot_extended_family(sample)
 ```
 
 ## Running the Examples

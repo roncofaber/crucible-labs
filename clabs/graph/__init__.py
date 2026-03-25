@@ -11,7 +11,11 @@ Created on Tue Feb 4 2026
 """
 
 from .graph import (
-    build_project_graph,
+    Graph,
+    ancestors,
+    descendants,
+    common_ancestors,
+    siblings,
 )
 
 from .visualization import (
@@ -24,7 +28,11 @@ from .visualization import (
 )
 
 __all__ = [
-    "build_project_graph",
+    "Graph",
+    "ancestors",
+    "descendants",
+    "common_ancestors",
+    "siblings",
     "plot_direct_neighbors",
     "plot_ancestors",
     "plot_descendants",

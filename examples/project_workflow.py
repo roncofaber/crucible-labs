@@ -37,7 +37,7 @@ print(f"Sample: {tf.sample_name}")
 print(f"Measurements: {len(tf.measurements)}")
 
 # By name or ID
-tf = proj["TF000001"]
+tf = proj.get_sample(sample_name="TF000001")
 
 #%% Explore genealogy — direct relationships
 
@@ -47,34 +47,27 @@ print(f"All ancestors:   {len(tf.ancestors)}")
 
 #%% Explore genealogy — graph-based queries
 
-ancestors   = proj.get_ancestors(tf)
-descendants = proj.get_descendants(tf)
-siblings    = proj.get_siblings(tf)
-print(f"Ancestors: {len(ancestors)}, Descendants: {len(descendants)}, Siblings: {len(siblings)}")
+g = proj.graph
 
-tf2    = proj["TF000002"]
-common = proj.get_common_ancestors(tf, tf2)
+ancestors   = g.ancestors(tf)
+descendants = g.descendants(tf)
+sibs        = g.siblings(tf)
+print(f"Ancestors: {len(ancestors)}, Descendants: {len(descendants)}, Siblings: {len(sibs)}")
+
+tf2    = proj.get_sample(sample_name="TF000002")
+common = g.common_ancestors(tf, tf2)
 print(f"Common ancestors with TF000002: {len(common)}")
 
 #%% Visualize genealogy
 
-from clabs.graph import (
-    plot_direct_neighbors,
-    plot_ancestors,
-    plot_descendants,
-    plot_connected_component,
-    plot_extended_family,
-    plot_full_graph,
-)
-
-fig, ax = plot_direct_neighbors(proj, tf)
-fig, ax = plot_ancestors(proj, tf)
-fig, ax = plot_descendants(proj, tf)
-fig, ax = plot_connected_component(proj, tf)
-fig, ax = plot_extended_family(proj, tf)
-fig, ax = plot_full_graph(proj)
+fig, ax = g.plot_neighbors(tf)
+fig, ax = g.plot_ancestors(tf)
+fig, ax = g.plot_descendants(tf)
+fig, ax = g.plot_connected_component(tf)
+fig, ax = g.plot_extended_family(tf)
+fig, ax = g.plot()
 
 #%% Save a plot
 
-fig, ax = plot_extended_family(proj, tf)
+fig, ax = g.plot_extended_family(tf)
 fig.savefig("sample_extended_family.png", dpi=300, bbox_inches="tight")
