@@ -3,65 +3,155 @@
 """
 RGAMeasurement: Residual Gas Analyzer Time-Series Data
 
-Holds pressure-vs-time data for each mass-to-charge ratio measured during
-an automated RGA/TEY run at ALS beamline 12.0.1.2.
+Parses raw RGA + TEY files from the automated RGA/TEY pipeline at ALS BL12.0.1.2.
+
+Raw files expected per dataset:
+  *_TEY_DarkPD_*uA_PD_*uA_*_X_*_Y_*.txt   — TEY / shutter time-series
+  *_RGA_histogram_*_X_*_Y_*.txt            — mass-spectrum time-series
 """
 
 import os
 import re
 import logging
+from datetime import datetime
 
 import numpy as np
-import pandas as pd
 
 from clabs.measurements.measurement import Measurement
 
 logger = logging.getLogger(__name__)
 
-#%%
 
-def _pick_ms_t_file(files):
-    """Return the best MS_t file: prefer *_averaged, fall back to plain."""
-    averaged = [f for f in files if re.search(r'_MS_t_averaged\.txt$', f)]
-    if averaged:
-        return averaged[0]
-    plain = [f for f in files if re.search(r'_MS_t\.txt$', f)]
-    return plain[0] if plain else None
+# ---------------------------------------------------------------------------
+# Private parsing helpers
+# ---------------------------------------------------------------------------
+
+def _find_file(files, pattern):
+    """Return first file whose basename matches *pattern* (regex), or None."""
+    for f in files:
+        if re.search(pattern, os.path.basename(f)):
+            return f
+    return None
 
 
-def _sample_name_from_path(path):
-    """Extract sample name from filename prefix, e.g. 'TF002140_MS_t.txt' → 'TF002140'."""
-    basename = os.path.basename(path)
-    match = re.match(r'^([^_]+(?:_[^_]+)*?)_MS_t', basename)
-    return match.group(1) if match else None
+def _extract_float(text, pattern):
+    """Return float from first capture group of *pattern* in *text*, or None."""
+    m = re.search(pattern, text)
+    return float(m.group(1)) if m else None
 
+
+def _parse_tey_file(path):
+    """
+    Parse a TEY file.  Returns
+        time    : np.ndarray (T,)  – seconds
+        signal  : np.ndarray (T,)  – TEY in Amperes
+        shutter : np.ndarray (T,)  – 1 = beam on, 0 = beam off
+        pd_ua   : float            – photodiode current (µA)
+        dark_pd_ua : float         – dark PD current (µA)
+        x, y    : float            – stage coordinates
+    """
+    data   = np.loadtxt(path, skiprows=1, delimiter='\t', dtype=float)
+    time   = data[:, 0]
+    signal = data[:, 1]
+    shutter = data[:, 2]
+
+    bn = os.path.basename(path)
+    pd_ua      = _extract_float(bn, r'_PD_([-\d.]+)uA')
+    dark_pd_ua = _extract_float(bn, r'DarkPD_([-\d.]+)uA')
+    x          = _extract_float(bn, r'_X_([-\d.]+)')
+    y          = _extract_float(bn, r'_Y_([-\d.]+)')
+
+    return time, signal, shutter, pd_ua, dark_pd_ua, x, y
+
+
+def _parse_rga_file(path):
+    """
+    Parse an RGA histogram file.  Returns
+        time_str  : list[str]         – raw timestamp strings
+        mz        : np.ndarray (M,)   – m/z values (1-based)
+        pressure  : np.ndarray (T, M) – raw partial pressures (Torr)
+        scan_settings : dict
+        sample_name   : str or None
+    """
+    data     = np.loadtxt(path, skiprows=2, delimiter='\t', dtype=str)
+    time_str = data[:, 0].tolist()
+    pressure = data[:, 1:].astype(float)
+    mz       = np.arange(1, pressure.shape[1] + 1)
+
+    bn = os.path.basename(path)
+    scan_settings = dict(
+        scanspeed  = _extract_float(bn, r'scanspeed_(\d+)'),
+        finalmass  = _extract_float(bn, r'finalmass_(\d+)'),
+        scantime   = _extract_float(bn, r'scantime_(\d+)'),
+    )
+    sample_name = bn.split('_RGA_')[0] if '_RGA_' in bn else None
+
+    return time_str, mz, pressure, scan_settings, sample_name
+
+
+def _timestamps_to_seconds(time_str_list):
+    """Convert '%Y/%m/%d %H:%M:%S.%f' strings to seconds relative to first."""
+    t0 = datetime.strptime(time_str_list[0], '%Y/%m/%d %H:%M:%S.%f')
+    return np.array([
+        (datetime.strptime(t, '%Y/%m/%d %H:%M:%S.%f') - t0).total_seconds()
+        for t in time_str_list
+    ])
+
+
+# ---------------------------------------------------------------------------
+# Measurement class
+# ---------------------------------------------------------------------------
 
 class RGAMeasurement(Measurement):
+    """
+    Raw RGA + TEY data from one automated RGA/TEY run.
+
+    Attributes
+    ----------
+    time : np.ndarray (T,)
+        RGA time axis in seconds (relative to first scan).
+    mz : np.ndarray (M,)
+        Mass-to-charge values.
+    pressure : np.ndarray (T, M)
+        Raw partial pressures in Torr.
+    tey_time : np.ndarray
+        TEY time axis in seconds.
+    tey_signal : np.ndarray
+        Raw TEY signal in Amperes.
+    shutter : np.ndarray
+        Shutter state (1 = beam on, 0 = off).
+    pd, dark_pd : float
+        Photodiode and dark-PD currents in µA.
+    x, y : float
+        Stage coordinates.
+    scan_settings : dict
+    """
 
     _mtype = "rga"
 
-    def __init__(self, dataset, sample_name, time, mz, pressure, std):
-        """
-        Parameters
-        ----------
-        dataset : Dataset
-        sample_name : str
-            Sample name extracted from the filename prefix (e.g. 'TF002140').
-        time : np.ndarray, shape (T,)
-            Time axis in seconds.
-        mz : np.ndarray, shape (M,)
-            Mass-to-charge ratios (integer m/z values).
-        pressure : np.ndarray, shape (T, M)
-            Partial pressure in Torr for each (time, m/z) point.
-        std : np.ndarray, shape (T, M)
-            Standard deviation of pressure.
-        """
+    def __init__(self, dataset, sample_name,
+                 time, mz, pressure,
+                 tey_time, tey_signal, shutter,
+                 pd_ua, dark_pd_ua,
+                 x=None, y=None, scan_settings=None):
+
         super().__init__(dataset)
         self._sample_name = sample_name
-        self.time     = time
-        self.mz       = mz
-        self.pressure = pressure
-        self.std      = std
+        self.time         = time
+        self.mz           = mz
+        self.pressure     = pressure
+        self.tey_time     = tey_time
+        self.tey_signal   = tey_signal
+        self.shutter      = shutter
+        self.pd           = pd_ua
+        self.dark_pd      = dark_pd_ua
+        self.x            = x
+        self.y            = y
+        self.scan_settings = scan_settings or {}
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
 
     @property
     def sample_name(self):
@@ -69,7 +159,7 @@ class RGAMeasurement(Measurement):
 
     @property
     def sample_mfid(self):
-        return None  # single-sample datasets match by name via Dataset.load()
+        return None
 
     @property
     def n_timepoints(self):
@@ -79,44 +169,53 @@ class RGAMeasurement(Measurement):
     def n_mz(self):
         return len(self.mz)
 
-    def get_trace(self, mz):
-        """Return pressure vs time for a single m/z value."""
-        idx = np.searchsorted(self.mz, mz)
-        if idx >= len(self.mz) or self.mz[idx] != mz:
-            raise ValueError(f"m/z {mz} not found in dataset")
+    # ------------------------------------------------------------------
+    # Basic accessors
+    # ------------------------------------------------------------------
+
+    def get_trace(self, mz_val):
+        """Return raw pressure vs time for a single m/z value."""
+        idx = np.searchsorted(self.mz, mz_val)
+        if idx >= len(self.mz) or self.mz[idx] != mz_val:
+            raise ValueError(f"m/z {mz_val} not in dataset")
         return self.pressure[:, idx]
 
     def get_spectrum(self, t=None):
         """
-        Return the mass spectrum (pressure vs m/z) at a given time index.
-        If t is None, returns the time-averaged spectrum.
+        Raw mass spectrum (pressure vs m/z).
+        *t* = time index; None → time-averaged over all points.
         """
         if t is None:
             return np.nanmean(self.pressure, axis=0)
         return self.pressure[t, :]
 
+    # ------------------------------------------------------------------
+    # Loader
+    # ------------------------------------------------------------------
+
     @classmethod
     def load(cls, dataset, files):
-        """Parse an RGA dataset from downloaded files. Returns an RGAMeasurement."""
-        ms_t_file = _pick_ms_t_file(files)
-        if ms_t_file is None:
-            logger.warning(f"No MS_t file found for dataset {dataset.name!r}")
+        """Parse raw TEY + RGA histogram files and return an RGAMeasurement."""
+        tey_file = _find_file(files, r'_TEY_')
+        rga_file = _find_file(files, r'_RGA_histogram_')
+
+        if tey_file is None:
+            logger.warning(f"No TEY file for dataset {dataset.name!r}")
+            return None
+        if rga_file is None:
+            logger.warning(f"No RGA histogram file for dataset {dataset.name!r}")
             return None
 
-        sample_name = _sample_name_from_path(ms_t_file)
+        tey_time, tey_signal, shutter, pd_ua, dark_pd_ua, x, y = _parse_tey_file(tey_file)
+        time_str, mz, pressure, scan_settings, sample_name = _parse_rga_file(rga_file)
+
         if sample_name is None:
-            logger.warning(f"Could not extract sample name from {ms_t_file!r}")
+            sample_name = os.path.basename(tey_file).split('_TEY_')[0]
 
-        df       = pd.read_csv(ms_t_file, sep='\t')
-        time     = df["Time(s)"].to_numpy()
-        mz_cols  = [c for c in df.columns if re.match(r'^MZ\d+\(Torr\)$',  c)]
-        std_cols = [c for c in df.columns if re.match(r'^Std\d+\(Torr\)$', c)]
-        mz       = np.array([int(re.search(r'\d+', c).group()) for c in mz_cols])
-        pressure = df[mz_cols].to_numpy()
-        std      = df[std_cols].to_numpy()
+        time = _timestamps_to_seconds(time_str)
 
-        return cls(dataset, sample_name, time, mz, pressure, std)
-
-    # def __repr__(self):
-    #     return (f"RGAMeasurement({self._sample_name!r}, "
-    #             f"{self.n_timepoints} timepoints, m/z 1–{self.mz[-1]})")
+        return cls(dataset, sample_name,
+                   time, mz, pressure,
+                   tey_time, tey_signal, shutter,
+                   pd_ua, dark_pd_ua,
+                   x=x, y=y, scan_settings=scan_settings)
