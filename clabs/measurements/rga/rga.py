@@ -55,10 +55,10 @@ def _parse_tey_file(path):
         dark_pd_ua : float         – dark PD current (µA)
         x, y    : float            – stage coordinates
     """
-    data   = np.loadtxt(path, skiprows=1, delimiter='\t', dtype=float)
-    time   = data[:, 0]
-    signal = data[:, 1]
-    shutter = data[:, 2]
+    data    = np.loadtxt(path, skiprows=1, delimiter='\t', dtype=float)
+    time    = data[:, 0]
+    signal  = data[:, 1]
+    shutter = data[:, 2] if data.shape[1] > 2 else np.zeros(len(time))
 
     bn = os.path.basename(path)
     pd_ua      = _extract_float(bn, r'_PD_([-\d.]+)uA')
