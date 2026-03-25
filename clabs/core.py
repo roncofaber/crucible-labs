@@ -29,16 +29,21 @@ dtype2ext = {
 
 class CruxObj(object):
 
-    def __init__(self, creation_time=None, unique_id=None, project_id=None,
+    def __init__(self, timestamp=None, creation_time=None, modification_time=None,
+                 unique_id=None, project_id=None,
                  owner_orcid=None, owner_user_id=None, **kwargs):
-        
+
         self._unique_id = unique_id
         self._project_id = project_id
         self._owner_orcid = owner_orcid
         self._owner_user_id = owner_user_id
-        
+
+        # user-settable date (e.g. when the measurement was taken)
+        self._timestamp = parse_datetime(timestamp)
+        # server-assigned dates (backfilled; may be None for older records)
         self._creation_time = parse_datetime(creation_time)
-            
+        self._modification_time = parse_datetime(modification_time)
+
         # initialize QR code
         self._qr_code = qrcode.QRCode(border=1)
         self._qr_code.add_data(self.mfid)
@@ -89,12 +94,27 @@ class CruxObj(object):
         webbrowser.open(self.link)
 
     @property
+    def timestamp(self):
+        """User-settable date (e.g. when the measurement was taken)."""
+        return self._timestamp
+
+    @property
+    def creation_time(self):
+        """Server-assigned creation time (backfilled; may be None for older records)."""
+        return self._creation_time
+
+    @property
+    def modification_time(self):
+        """Server-assigned last-modification time (backfilled; may be None for older records)."""
+        return self._modification_time
+
+    @property
     def age(self):
-        """Returns the age of the object as a timedelta, or None if creation_time is unknown."""
-        if self._creation_time is None:
+        """Returns the age of the object as a timedelta based on timestamp, or None if unknown."""
+        if self._timestamp is None:
             return None
-        if self._creation_time.tzinfo is None:
+        if self._timestamp.tzinfo is None:
             now = datetime.now()
         else:
             now = datetime.now(timezone.utc)
-        return now - self._creation_time
+        return now - self._timestamp

@@ -15,7 +15,7 @@ from collections import deque
 
 # internal modules
 from clabs.core import CruxObj
-from clabs.models import BaseSample
+from clabs.models import SampleModel
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -29,17 +29,19 @@ class Sample(CruxObj):
     def __init__(self, dst_dict=None):
 
         # store info using the pydantic model
-        self._sample = BaseSample.model_validate(dst_dict)
+        self._sample = SampleModel.model_validate(dst_dict)
 
         self._datasets = []  # filled in by project._setup_graph
 
         # initialize parent class
         super().__init__(
-            creation_time = self._sample.creation_time,
-            unique_id     = self._sample.unique_id,
-            project_id    = self._sample.project_id,
-            owner_orcid   = self._sample.owner_orcid,
-            owner_user_id = self._sample.owner_user_id,
+            timestamp         = self._sample.timestamp,
+            creation_time     = self._sample.creation_time,
+            modification_time = self._sample.modification_time,
+            unique_id         = self._sample.unique_id,
+            project_id        = self._sample.project_id,
+            owner_orcid       = self._sample.owner_orcid,
+            owner_user_id     = self._sample.owner_user_id,
         )
 
         # loaded measurements keyed by mtype — populated by dataset.load()

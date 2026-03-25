@@ -16,7 +16,7 @@ import logging
 
 # internal modules
 from clabs.core import CruxObj
-from clabs.models import BaseDataset
+from clabs.models import DatasetModel
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -31,16 +31,18 @@ class Dataset(CruxObj):
     def __init__(self, dst_dict=None):
         
         # store info using the pydantic model
-        self._dataset = BaseDataset.model_validate(dst_dict)
+        self._dataset = DatasetModel.model_validate(dst_dict)
         
         # initialize parent class
         super().__init__(
-            creation_time = self._dataset.creation_time,
-            unique_id     = self._dataset.unique_id,
-            project_id    = self._dataset.project_id,
-            owner_orcid   = self._dataset.owner_orcid,
-            owner_user_id = self._dataset.owner_user_id,
-            )
+            timestamp         = self._dataset.timestamp,
+            creation_time     = self._dataset.creation_time,
+            modification_time = self._dataset.modification_time,
+            unique_id         = self._dataset.unique_id,
+            project_id        = self._dataset.project_id,
+            owner_orcid       = self._dataset.owner_orcid,
+            owner_user_id     = self._dataset.owner_user_id,
+        )
         
         # easy way to access metadata
         try:

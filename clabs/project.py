@@ -10,7 +10,7 @@ Created on Thu Feb  5 13:09:34 2026
 from clabs import Sample, Dataset
 from clabs.collection import SampleCollection, DatasetCollection
 from clabs.graph.graph import build_project_graph
-from clabs.models import BaseProject
+from clabs.models import ProjectModel
 from crucible.config import get_client, get_cache_dir
 
 # Set up logger for this module
@@ -34,7 +34,9 @@ class CrucibleProject:
 
         # fetch and validate project metadata
         project_dict = self.client.projects.get(project_id)
-        self._project    = BaseProject.model_validate(project_dict)
+        if project_dict is None:
+            raise ValueError(f"Project '{project_id}' not found. Check the project ID or your permissions.")
+        self._project    = ProjectModel.model_validate(project_dict)
         self._project_id = self._project.project_id
 
         # 1. load and instantiate datasets
