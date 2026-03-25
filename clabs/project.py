@@ -217,7 +217,7 @@ class CrucibleProject:
             def _prefetch(dataset):
                 dataset.prefetch(self.client, cache_dir, overwrite_existing=self._overwrite_cache)
 
-            with ThreadPoolExecutor() as executor:
+            with ThreadPoolExecutor(max_workers=8) as executor:
                 futures = {executor.submit(_prefetch, ds): ds for ds in datasets}
                 for future in tqdm(as_completed(futures), total=n,
                                    desc="  downloading", **bar_kwargs):

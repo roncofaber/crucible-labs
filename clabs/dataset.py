@@ -12,6 +12,7 @@ Created on Fri Jan 16 18:22:21 2026
 """
 
 import os
+import time
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -149,12 +150,28 @@ class Dataset(CruxObj):
         if local and not overwrite_existing:
             self._files = local
         else:
-            signed_urls = client.datasets.get_download_links(self.unique_id)
+            signed_urls = self._get_download_links_with_retry(client)
             self._files = self._parallel_download(
                 signed_urls,
                 output_dir         = cache_dir,
                 overwrite_existing = overwrite_existing,
             )
+
+    def _get_download_links_with_retry(self, client, max_attempts=4, base_delay=2):
+        """Call get_download_links with exponential backoff on transient failures."""
+        for attempt in range(max_attempts):
+            try:
+                return client.datasets.get_download_links(self.unique_id)
+            except Exception as e:
+                if attempt == max_attempts - 1:
+                    raise
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    f"get_download_links failed for {self.name!r} "
+                    f"(attempt {attempt + 1}/{max_attempts}): {e}. "
+                    f"Retrying in {delay}s..."
+                )
+                time.sleep(delay)
 
     def load(self, client, cache_dir, use_cache=True, overwrite_existing=False):
         """
