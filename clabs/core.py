@@ -13,6 +13,7 @@ Created on Thu Jan 22 17:34:02 2026
 # handy packages
 import qrcode
 import webbrowser
+from collections import deque
 from datetime import datetime, timezone
 
 # import client from nano-crucible
@@ -43,6 +44,10 @@ class CruxObj(object):
         # server-assigned dates (backfilled; may be None for older records)
         self._creation_time = parse_datetime(creation_time)
         self._modification_time = parse_datetime(modification_time)
+
+        # genealogy (same-type parent/child relationships)
+        self._parents  = []
+        self._children = []
 
         # initialize QR code
         self._qr_code = qrcode.QRCode(border=1)
@@ -107,6 +112,58 @@ class CruxObj(object):
     def modification_time(self):
         """Server-assigned last-modification time (backfilled; may be None for older records)."""
         return self._modification_time
+
+    # ------------------------------------------------------------------
+    # Genealogy — same-type parent/child relationships
+    # ------------------------------------------------------------------
+
+    def add_parent(self, parent, _skip_reciprocal=False):
+        """Link a parent object (bidirectional)."""
+        if parent not in self._parents:
+            self._parents.append(parent)
+            if not _skip_reciprocal:
+                parent.add_child(self, _skip_reciprocal=True)
+
+    def add_child(self, child, _skip_reciprocal=False):
+        """Link a child object (bidirectional)."""
+        if child not in self._children:
+            self._children.append(child)
+            if not _skip_reciprocal:
+                child.add_parent(self, _skip_reciprocal=True)
+
+    @property
+    def parents(self):
+        return self._parents
+
+    @property
+    def children(self):
+        return self._children
+
+    @property
+    def ancestors(self):
+        """All ancestors via BFS over parent relationships."""
+        result, visited = [], set()
+        queue = deque(self._parents)
+        while queue:
+            current = queue.popleft()
+            if id(current) not in visited:
+                visited.add(id(current))
+                result.append(current)
+                queue.extend(current.parents)
+        return result
+
+    @property
+    def descendants(self):
+        """All descendants via BFS over child relationships."""
+        result, visited = [], set()
+        queue = deque(self._children)
+        while queue:
+            current = queue.popleft()
+            if id(current) not in visited:
+                visited.add(id(current))
+                result.append(current)
+                queue.extend(current.children)
+        return result
 
     @property
     def age(self):

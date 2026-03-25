@@ -58,10 +58,6 @@ class Dataset(CruxObj):
         self._samples_by_name = {}
         self._samples_by_id   = {}
 
-        # parent/child dataset relationships (dataset genealogy)
-        self._parents  = []
-        self._children = []
-
         # loaded measurement objects (populated by load())
         self._measurements = []
 
@@ -78,28 +74,6 @@ class Dataset(CruxObj):
             self._samples_by_id[sample.unique_id]   = sample
             if not _skip_reciprocal:
                 sample.add_dataset(self, _skip_reciprocal=True)
-
-    def add_parent(self, parent_dataset, _skip_reciprocal=False):
-        """Link a parent dataset (bidirectional)."""
-        if parent_dataset not in self._parents:
-            self._parents.append(parent_dataset)
-            if not _skip_reciprocal:
-                parent_dataset.add_child(self, _skip_reciprocal=True)
-
-    def add_child(self, child_dataset, _skip_reciprocal=False):
-        """Link a child dataset (bidirectional)."""
-        if child_dataset not in self._children:
-            self._children.append(child_dataset)
-            if not _skip_reciprocal:
-                child_dataset.add_parent(self, _skip_reciprocal=True)
-
-    @property
-    def parents(self):
-        return self._parents
-
-    @property
-    def children(self):
-        return self._children
 
     @property
     def data(self):

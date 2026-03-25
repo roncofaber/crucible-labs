@@ -11,7 +11,6 @@ Created on Wed Jan  7 17:53:17 2026
 """
 
 import logging
-from collections import deque
 
 # internal modules
 from clabs.core import CruxObj
@@ -46,10 +45,6 @@ class Sample(CruxObj):
 
         # loaded measurements keyed by mtype — populated by dataset.load()
         self._measurements = {}
-
-        # parent/child relationships for genealogy tracking
-        self._parents  = []
-        self._children = []
     
     @property
     def sample_name(self):
@@ -140,58 +135,6 @@ class Sample(CruxObj):
     @property
     def measurements(self):
         return list(self._measurements.values())
-
-    def add_parent(self, parent_sample, _skip_reciprocal=False):
-        """Add a parent sample to this sample's genealogy (bidirectional)."""
-        if parent_sample not in self._parents:
-            self._parents.append(parent_sample)
-            if not _skip_reciprocal:
-                parent_sample.add_child(self, _skip_reciprocal=True)
-
-    def add_child(self, child_sample, _skip_reciprocal=False):
-        """Add a child sample to this sample's genealogy (bidirectional)."""
-        if child_sample not in self._children:
-            self._children.append(child_sample)
-            if not _skip_reciprocal:
-                child_sample.add_parent(self, _skip_reciprocal=True)
-
-    @property
-    def parents(self):
-        """Get list of direct parent samples."""
-        return self._parents
-
-    @property
-    def children(self):
-        """Get list of direct child samples."""
-        return self._children
-    
-    @property
-    def ancestors(self):
-        """Get all ancestor samples by traversing parent relationships."""
-        ancestors = []
-        visited = set()
-        queue = deque(self._parents)
-        while queue:
-            current = queue.popleft()
-            if id(current) not in visited:
-                visited.add(id(current))
-                ancestors.append(current)
-                queue.extend(current.parents)
-        return ancestors
-
-    @property
-    def descendants(self):
-        """Get all descendant samples by traversing child relationships."""
-        descendants = []
-        visited = set()
-        queue = deque(self._children)
-        while queue:
-            current = queue.popleft()
-            if id(current) not in visited:
-                visited.add(id(current))
-                descendants.append(current)
-                queue.extend(current.children)
-        return descendants
 
     def view(self):
         for m in self._measurements.values():
