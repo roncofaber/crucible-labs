@@ -16,7 +16,7 @@ from .dataset import Dataset
 from .collection import SampleCollection, DatasetCollection, FieldSpec
 
 # Data reading and measurements
-from .measurements import Measurement, NirvanaUVVis, TFImage
+from .measurements import Measurement, NirvanaUVVis, TFImage, RGAMeasurement
 
 # Genealogy module (import as submodule)
 from . import graph
@@ -33,6 +33,7 @@ __all__ = [
     "Measurement",
     "NirvanaUVVis",
     "TFImage",
+    "RGAMeasurement",
     "get_crucible_api_key",
     "create_config_file",
     "get_config_file_path",

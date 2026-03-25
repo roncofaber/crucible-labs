@@ -21,8 +21,8 @@ tfilms = proj.samples.filter(sample_type="thin film")
 
 #%% Load measurements
 
-proj.load_measurements("pollux_oospec_multipos_line_scan")
-proj.load_measurements("sample well image")
+# proj.load_measurements("pollux_oospec_multipos_line_scan")
+# proj.load_measurements("sample well image")
 
 #%% Build metadata table from datasets and ancestor chain
 
@@ -37,20 +37,20 @@ df = tfilms.to_dataframe(fields=fields, include_ancestors=True)
 
 #%% Compute per-sample UV-Vis inhomogeneity (exclude RGA sessions)
 
-rows = []
-for uvvis in tfilms.get_measurements(mtype="uvvis", exclude={"dataset.session": "RGA"}):
-    spots = list(range(1, uvvis.nspots - 1))
-    rows.append({
-        "sample_name":   uvvis.sample.name,
-        "inhomogeneity": np.mean(uvvis.get_inhomogeneity(spots=spots)),
-    })
+# rows = []
+# for uvvis in tfilms.get_measurements(mtype="uvvis", exclude={"dataset.session": "RGA"}):
+#     spots = list(range(1, uvvis.nspots - 1))
+#     rows.append({
+#         "sample_name":   uvvis.sample.name,
+#         "inhomogeneity": np.mean(uvvis.get_inhomogeneity(spots=spots)),
+#     })
 
-# Average across multiple measurements per sample
-uvvis_df = pd.DataFrame(rows).groupby("sample_name").mean()
+# # Average across multiple measurements per sample
+# uvvis_df = pd.DataFrame(rows).groupby("sample_name").mean()
 
-#%% Merge and compute per-precursor-solution average inhomogeneity
+# #%% Merge and compute per-precursor-solution average inhomogeneity
 
-full_df = df.join(uvvis_df)
-full_df["ps_avg_inhomogeneity"] = (
-    full_df.groupby("precursor_solution_name")["inhomogeneity"].transform("mean")
-)
+# full_df = df.join(uvvis_df)
+# full_df["ps_avg_inhomogeneity"] = (
+#     full_df.groupby("precursor_solution_name")["inhomogeneity"].transform("mean")
+# )

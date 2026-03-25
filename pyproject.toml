@@ -55,6 +55,7 @@ packages = [
     "clabs.measurements",
     "clabs.measurements.uvvis",
     "clabs.measurements.image",
+    "clabs.measurements.rga",
     "clabs.utils",
     "clabs.graph",
     "clabs.plot"
