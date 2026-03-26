@@ -77,6 +77,7 @@ def setup_logging(level=logging.INFO, format_string=None):
     logger = logging.getLogger('clabs')
     logger.setLevel(level)
     logger.handlers.clear()
+    logger.propagate = False
 
     handler = _TqdmHandler()
     handler.setLevel(level)
