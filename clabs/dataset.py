@@ -12,11 +12,7 @@ Created on Fri Jan 16 18:22:21 2026
 """
 
 import os
-import time
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import requests
 
 # internal modules
 from clabs.core import CruxObj
@@ -101,77 +97,21 @@ class Dataset(CruxObj):
             return [os.path.join(dataset_dir, f) for f in os.listdir(dataset_dir)]
         return []
 
-    @staticmethod
-    def _download_file(fname, signed_url, output_dir, overwrite_existing):
-        """Download a single file from a signed URL. Returns local path, or None if skipped."""
-        download_path = os.path.join(output_dir, fname)
-        if not overwrite_existing and os.path.exists(download_path):
-            return download_path
-        parent = os.path.dirname(download_path)
-        if parent:
-            os.makedirs(parent, exist_ok=True)
-        response = requests.get(signed_url, stream=True)
-        response.raise_for_status()
-        with open(download_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        return download_path
-
-    @staticmethod
-    def _parallel_download(signed_urls, output_dir, overwrite_existing=False, max_workers=16):
-        """Download multiple files in parallel from signed URLs. Returns list of local paths."""
-        os.makedirs(output_dir, exist_ok=True)
-        paths = []
-        futures = {}
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            for fname, url in signed_urls.items():
-                f = pool.submit(Dataset._download_file, fname, url, output_dir, overwrite_existing)
-                futures[f] = fname
-            for future in as_completed(futures):
-                fname = futures[future]
-                try:
-                    path = future.result()
-                    if path is not None:
-                        paths.append(path)
-                except Exception as e:
-                    logger.warning(f"Failed to download {fname!r}: {e}")
-        return paths
-
     def prefetch(self, client, cache_dir, overwrite_existing=False):
         """
         Download dataset files without parsing. Thread-safe: no shared state is touched.
-        Call this in a thread pool before load() to overlap network I/O.
-
-        Files within each dataset are downloaded in parallel (via signed URLs),
-        on top of the dataset-level parallelism in the caller.
+        Call this in a thread pool before load() to overlap network I/O with parsing.
         """
         dataset_dir = os.path.join(cache_dir, self.unique_id)
         local = self._list_local_files(dataset_dir)
         if local and not overwrite_existing:
             self._files = local
         else:
-            signed_urls = self._get_download_links_with_retry(client)
-            self._files = self._parallel_download(
-                signed_urls,
+            self._files = client.datasets._fetch_files(
+                self.unique_id,
                 output_dir         = cache_dir,
                 overwrite_existing = overwrite_existing,
             )
-
-    def _get_download_links_with_retry(self, client, max_attempts=4, base_delay=2):
-        """Call get_download_links with exponential backoff on transient failures."""
-        for attempt in range(max_attempts):
-            try:
-                return client.datasets.get_download_links(self.unique_id)
-            except Exception as e:
-                if attempt == max_attempts - 1:
-                    raise
-                delay = base_delay * (2 ** attempt)
-                logger.warning(
-                    f"get_download_links failed for {self.name!r} "
-                    f"(attempt {attempt + 1}/{max_attempts}): {e}. "
-                    f"Retrying in {delay}s..."
-                )
-                time.sleep(delay)
 
     def load(self, client, cache_dir, use_cache=True, overwrite_existing=False):
         """
@@ -197,6 +137,7 @@ class Dataset(CruxObj):
                     self.unique_id,
                     output_dir         = cache_dir,
                     overwrite_existing = overwrite_existing,
+                    no_record          = True,
                 )
 
         if not files:
