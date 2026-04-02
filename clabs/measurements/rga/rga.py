@@ -58,7 +58,7 @@ def _parse_tey_file(path):
     data    = np.loadtxt(path, skiprows=1, delimiter='\t', dtype=float)
     time    = data[:, 0]
     signal  = data[:, 1]
-    shutter = data[:, 2] if data.shape[1] > 2 else np.zeros(len(time))
+    shutter = data[:, 2]
 
     bn = os.path.basename(path)
     pd_ua      = _extract_float(bn, r'_PD_([-\d.]+)uA')
@@ -80,7 +80,7 @@ def _parse_rga_file(path):
     """
     data     = np.loadtxt(path, skiprows=2, delimiter='\t', dtype=str)
     time_str = data[:, 0].tolist()
-    pressure = data[:, 1:].astype(float)
+    pressure = data[:, 1:].astype(float).T
     mz       = np.arange(1, pressure.shape[1] + 1)
 
     bn = os.path.basename(path)
@@ -91,7 +91,8 @@ def _parse_rga_file(path):
     )
     sample_name = bn.split('_RGA_')[0] if '_RGA_' in bn else None
 
-    return time_str, mz, pressure, scan_settings, sample_name
+    # here we return the transpose of the pressure
+    return time_str, mz, pressure.T, scan_settings, sample_name
 
 
 def _timestamps_to_seconds(time_str_list):
@@ -154,10 +155,7 @@ class RGAMeasurement(Measurement):
         self.y            = y
         self.scan_settings = scan_settings or {}
 
-    # ------------------------------------------------------------------
     # Properties
-    # ------------------------------------------------------------------
-
     @property
     def sample_name(self):
         return self._sample_name
@@ -174,10 +172,7 @@ class RGAMeasurement(Measurement):
     def n_mz(self):
         return len(self.mz)
 
-    # ------------------------------------------------------------------
     # Basic accessors
-    # ------------------------------------------------------------------
-
     def get_trace(self, mz_val):
         """Return raw pressure vs time for a single m/z value."""
         idx = np.searchsorted(self.mz, mz_val)
@@ -201,8 +196,8 @@ class RGAMeasurement(Measurement):
     @classmethod
     def load(cls, dataset, files):
         """Parse raw TEY + RGA histogram files and return an RGAMeasurement."""
-        tey_file = _find_file(files, r'_TEY_',           ext='.txt')
-        rga_file = _find_file(files, r'_RGA_histogram_', ext='.txt')
+        tey_file = _find_file(files, r'_TEY_DarkPD_',               ext='.txt')
+        rga_file = _find_file(files, r'_RGA_histogram_scanspeed_',  ext='.txt')
 
         if tey_file is None:
             logger.warning(f"No TEY file for dataset {dataset.name!r}")
