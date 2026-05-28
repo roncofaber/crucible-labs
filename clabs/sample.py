@@ -40,7 +40,6 @@ class Sample(CruxObj):
             unique_id         = self._sample.unique_id,
             project_id        = self._sample.project_id,
             owner_orcid       = self._sample.owner_orcid,
-            owner_user_id     = self._sample.owner_user_id,
         )
 
         # loaded measurements keyed by mtype — populated by dataset.load()
@@ -77,6 +76,10 @@ class Sample(CruxObj):
     @property
     def description(self):
         return self._sample.description
+
+    @property
+    def links(self):
+        return self._sample.links
     
     @staticmethod
     def _resolve_attr(m, attr, sample):

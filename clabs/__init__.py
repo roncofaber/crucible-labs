@@ -13,7 +13,8 @@ from crucible.config import get_crucible_api_key, create_config_file, get_config
 # Core classes
 from .sample import Sample
 from .dataset import Dataset
-from .collection import SampleCollection, DatasetCollection, FieldSpec
+from .collection import SampleCollection, DatasetCollection
+from .tables import FieldSpec, RowSpec, build_table
 
 # Data reading and measurements
 from .measurements import Measurement, NirvanaUVVis, TFImage, RGAMeasurement
@@ -30,6 +31,8 @@ __all__ = [
     "SampleCollection",
     "DatasetCollection",
     "FieldSpec",
+    "RowSpec",
+    "build_table",
     "Measurement",
     "NirvanaUVVis",
     "TFImage",

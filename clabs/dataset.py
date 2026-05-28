@@ -41,7 +41,6 @@ class Dataset(CruxObj):
             unique_id         = self._dataset.unique_id,
             project_id        = self._dataset.project_id,
             owner_orcid       = self._dataset.owner_orcid,
-            owner_user_id     = self._dataset.owner_user_id,
         )
         
         # easy way to access metadata
@@ -109,11 +108,11 @@ class Dataset(CruxObj):
         else:
             self._files = client.datasets._fetch_files(
                 self.unique_id,
-                output_dir         = cache_dir,
+                output_dir         = dataset_dir,
                 overwrite_existing = overwrite_existing,
             )
 
-    def load(self, client, cache_dir, use_cache=True, overwrite_existing=False):
+    def load(self, client, cache_dir, use_cache=True, overwrite_existing=False, **kwargs):
         """
         Download (if needed) and parse this dataset's data files.
 
@@ -135,7 +134,7 @@ class Dataset(CruxObj):
             else:
                 files = client.datasets.download(
                     self.unique_id,
-                    output_dir         = cache_dir,
+                    output_dir         = dataset_dir,
                     overwrite_existing = overwrite_existing,
                     no_record          = True,
                 )
@@ -144,7 +143,7 @@ class Dataset(CruxObj):
             logger.warning(f"No files downloaded for dataset {self.name!r}")
             return None
 
-        result = loader(self, files)
+        result = loader(self, files, **kwargs)
         if result is None:
             return None
 
@@ -192,10 +191,18 @@ class Dataset(CruxObj):
     def samples(self):
         """All samples this dataset is linked to."""
         return self._samples
-    
+
     @property
     def dtype(self):
         return self._dataset.measurement
+
+    @property
+    def data_type(self):
+        return self._dataset.data_type
+
+    @property
+    def links(self):
+        return self._dataset.links
 
     @property
     def scientific_metadata(self):

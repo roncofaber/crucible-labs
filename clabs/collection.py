@@ -12,48 +12,12 @@ Created on Thu Feb  6 2026
 """
 
 import logging
-from datetime import timedelta
 from crucible.config import get_client
+from .tables import FieldSpec, RowSpec, build_table
 
 logger = logging.getLogger(__name__)
 
 #%%
-
-class FieldSpec:
-    """
-    Specification for a field group to extract in SampleCollection.to_dataframe().
-
-    Parameters
-    ----------
-    *keys : str
-        Keys to extract from scientific_metadata. Dot notation supported for
-        nested access (e.g. ``"composition.Pb"``). Column name is the leaf key.
-    sample_type : str, optional
-        If given, only extract from sources whose ``sample_type`` matches this
-        string. Useful for restricting ancestor lookups to a specific level of
-        the genealogy (e.g. ``"precursor solution"``).
-
-    Examples
-    --------
-    >>> from clabs import FieldSpec as F
-    >>> fields = {
-    ...     "spin_run":                     ["spin_speed", "annealing_duration"],
-    ...     "Precursor Solution synthesis": F("target_stoichiometry", sample_type="precursor solution"),
-    ...     "Stock Solution synthesis":     F("solvent", "target_concentration_mol", sample_type="stock solution"),
-    ... }
-    >>> df = tfilms.to_dataframe(fields=fields, include_ancestors=True)
-    """
-
-    def __init__(self, *keys, sample_type=None):
-        self.keys        = list(keys)
-        self.sample_type = sample_type
-
-    def __repr__(self):
-        parts = [repr(k) for k in self.keys]
-        if self.sample_type is not None:
-            parts.append(f"sample_type={self.sample_type!r}")
-        return f"FieldSpec({', '.join(parts)})"
-
 
 #%%
 
@@ -191,106 +155,10 @@ class SampleCollection(CrucibleCollection):
             result = [s for s in result if any(m.mtype == has_measurement for m in s.measurements)]
         return SampleCollection(samples=result, project_id=self._project_id)
 
-    def to_dataframe(self, fields=None, include_ancestors=False, sample_fields=None):
-        """
-        Build a pandas DataFrame with one row per sample.
-
-        Parameters
-        ----------
-        fields : dict, optional
-            Mapping of mtype → keys to extract from scientific_metadata.
-            Values can be:
-
-            * a plain list of key strings — searches any source
-            * a :class:`FieldSpec` — same, with an optional ``sample_type``
-              filter that restricts the lookup to sources of that type
-
-            Keys support dot notation for nested access (e.g. ``"composition.Pb"``).
-            Column names use the leaf key. If None, returns an empty DataFrame
-            with only the sample_name index.
-        include_ancestors : bool
-            If True, also search ancestor samples for the requested mtypes.
-            If a mtype is found exactly once the columns have no suffix; if
-            found multiple times they get a numeric suffix:
-            target_stoichiometry_1, target_stoichiometry_2, ...
-        sample_fields : list of str, optional
-            Sample attributes to include as columns (e.g. ``["unique_id",
-            "sample_type", "description"]``). Any property exposed on the
-            :class:`Sample` object is valid.
-
-        Returns
-        -------
-        pd.DataFrame indexed by sample_name.
-
-        Examples
-        --------
-        >>> from clabs import FieldSpec as F
-        >>> fields = {
-        ...     "spin_run":                     ["spin_speed", "annealing_duration"],
-        ...     "Precursor Solution synthesis": F("target_stoichiometry", sample_type="precursor solution"),
-        ...     "Stock Solution synthesis":     F("solvent", "target_concentration_mol", sample_type="stock solution"),
-        ... }
-        >>> df = tfilms.to_dataframe(fields=fields, include_ancestors=True)
-        """
-        import pandas as pd
-
-        def _get_nested(d, dotted_key):
-            for part in dotted_key.split("."):
-                if not isinstance(d, dict):
-                    return None
-                d = d.get(part)
-            return d
-
-        def _extract_mtype(source, mtype, keys):
-            """Extract keys for one mtype from source's datasets. Youngest wins."""
-            matches = [d for d in source.datasets if d.dtype == mtype]
-            if not matches:
-                return {}
-            sm = sorted(matches, key=lambda d: d.age if d.age is not None else timedelta.max)[0].scientific_metadata
-            if not sm:
-                return {}
-            return {key.split(".")[-1]: _get_nested(sm, key) for key in keys}
-
-        # normalise: plain list → FieldSpec with no sample_type filter
-        specs = {
-            mtype: (v if isinstance(v, FieldSpec) else FieldSpec(*v))
-            for mtype, v in (fields or {}).items()
-        }
-
-        rows = []
-        for sample in self._items:
-            row = {"sample_name": sample.name}
-            if sample_fields:
-                for attr in sample_fields:
-                    row[attr] = getattr(sample, attr, None)
-
-            if specs:
-                sources = [sample] + (list(sample.ancestors) if include_ancestors else [])
-
-                # collect all hits per mtype, respecting sample_type filters
-                mtype_hits = {}
-                for source in sources:
-                    for mtype, spec in specs.items():
-                        if spec.sample_type is not None and source.sample_type != spec.sample_type:
-                            continue
-                        data = _extract_mtype(source, mtype, spec.keys)
-                        if data:
-                            mtype_hits.setdefault(mtype, []).append(data)
-
-                # no suffix for a single hit, counter suffix for multiple
-                for mtype, hits in mtype_hits.items():
-                    if len(hits) == 1:
-                        row.update(hits[0])
-                    else:
-                        for idx, data in enumerate(hits, 1):
-                            row.update({f"{k}_{idx}": v for k, v in data.items()})
-
-            rows.append(row)
-
-        df = pd.DataFrame(rows)
-        if not df.empty:
-            df = df.set_index("sample_name")
-        return df
+    def to_dataframe(self, rows=None, fields=None, include_ancestors=False):
+        """Build a DataFrame from this collection. See :func:`clabs.tables.build_table`."""
+        return build_table(self, rows=rows, fields=fields,
+                           include_ancestors=include_ancestors)
 
     def _make_collection(self, items):
         return SampleCollection(samples=items, project_id=self._project_id)

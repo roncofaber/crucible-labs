@@ -32,6 +32,7 @@ fields = {
                                       "component_b_ss-id", "mixing_ratio",
                                       sample_type="precursor solution"),
     "Stock Solution synthesis":     F("solvent", sample_type="stock solution"),
+    "Solid Precursor synthesis": F("abbrev"),
 }
 df = tfilms.to_dataframe(fields=fields, include_ancestors=True)
 

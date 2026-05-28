@@ -101,7 +101,7 @@ class CrucibleProject:
         raw = self.client.datasets.list(
             project_id       = project_id,
             include_metadata = True,
-            limit            = int(1e8),
+            limit            = None,
         )
 
         datasets = []
@@ -116,9 +116,10 @@ class CrucibleProject:
     def _load_samples(self, project_id):
         """Fetch samples from API, create Sample objects, return SampleCollection."""
         raw = self.client.samples.list(
-            project_id  = project_id,
-            sample_type = None,
-            limit       = 1e8,
+            project_id       = project_id,
+            sample_type      = None,
+            include_metadata = True,
+            limit            = None,
         )
         raw = sorted(raw, key=lambda x: x["sample_name"])
 
@@ -142,17 +143,8 @@ class CrucibleProject:
         """Get any resource (Sample or Dataset) by unique_id."""
         return self._resources.get(resource_id)
 
-    def _get_project_graph(self):
-        return self.client._request("get", f"/projects/{self.project_id}/sample_graph")
-
-    def _get_dataset_graph(self):
-        return self.client._request("get", f"/projects/{self.project_id}/dataset_graph")
-
-    def _get_entity_graph(self):
-        return self.client._request("get", f"/projects/{self.project_id}/entity_graph")
-
     def _setup_graph(self):
-        graph = self._get_entity_graph()
+        graph = self.client.graphs.project(self._project_id)
 
         # networkx node-link format uses "links"; flat API format uses "edges"
         edges = graph.get("edges") or graph.get("links", [])
@@ -181,7 +173,7 @@ class CrucibleProject:
 
     #%% measurement loading
 
-    def _get_measurement_data(self, measurement_type, description, sample_type=None):
+    def _get_measurement_data(self, measurement_type, description, sample_type=None, **kwargs):
         """
         Download and parse all datasets of a given measurement type.
 
@@ -196,6 +188,8 @@ class CrucibleProject:
             Label for the progress bar.
         sample_type : str, optional
             If given, only process datasets belonging to samples of this type.
+        **kwargs
+            Forwarded to the measurement-type loader (e.g. window, gap_before).
         """
         from tqdm import tqdm
         from tqdm.contrib.logging import logging_redirect_tqdm
@@ -231,11 +225,12 @@ class CrucibleProject:
                         cache_dir          = cache_dir,
                         use_cache          = self._use_cache,
                         overwrite_existing = self._overwrite_cache,
+                        **kwargs,
                     )
                 except NotImplementedError:
                     logger.warning(f"No loader for {dataset.dtype!r}, skipping {dataset.name!r}")
 
-    def load_measurements(self, measurement_type, sample_type=None):
+    def load_measurements(self, measurement_type, sample_type=None, **kwargs):
         """
         Download and parse all datasets of a given measurement type.
 
@@ -245,6 +240,10 @@ class CrucibleProject:
             The mtype string to filter datasets on (e.g. 'pollux_oospec_multipos_line_scan').
         sample_type : str, optional
             If given, only process datasets belonging to samples of this type.
+        **kwargs
+            Forwarded to the measurement-type loader.  For RGA datasets:
+            ``background_correct`` (bool), ``window`` (s), ``gap_before`` (s),
+            ``gap_after`` (s).
         """
         from clabs.measurements import register_loaders
         register_loaders()  # ensures all built-in loaders are registered
@@ -252,7 +251,15 @@ class CrucibleProject:
             measurement_type = measurement_type,
             description      = measurement_type,
             sample_type      = sample_type,
+            **kwargs,
         )
+
+    #%% table export
+
+    def to_dataframe(self, rows=None, fields=None, include_ancestors=False):
+        """Build a DataFrame from this project. See :func:`clabs.tables.build_table`."""
+        return self._samples.to_dataframe(rows=rows, fields=fields,
+                                          include_ancestors=include_ancestors)
 
     #%% project metadata
 

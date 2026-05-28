@@ -13,6 +13,7 @@ Raw files expected per dataset:
 import os
 import re
 import logging
+import warnings
 from datetime import datetime
 
 import numpy as np
@@ -80,7 +81,7 @@ def _parse_rga_file(path):
     """
     data     = np.loadtxt(path, skiprows=2, delimiter='\t', dtype=str)
     time_str = data[:, 0].tolist()
-    pressure = data[:, 1:].astype(float).T
+    pressure = data[:, 1:].astype(float)        # shape (T, M)
     mz       = np.arange(1, pressure.shape[1] + 1)
 
     bn = os.path.basename(path)
@@ -91,8 +92,7 @@ def _parse_rga_file(path):
     )
     sample_name = bn.split('_RGA_')[0] if '_RGA_' in bn else None
 
-    # here we return the transpose of the pressure
-    return time_str, mz, pressure.T, scan_settings, sample_name
+    return time_str, mz, pressure, scan_settings, sample_name
 
 
 def _timestamps_to_seconds(time_str_list):
@@ -180,22 +180,197 @@ class RGAMeasurement(Measurement):
             raise ValueError(f"m/z {mz_val} not in dataset")
         return self.pressure[:, idx]
 
-    def get_spectrum(self, t=None):
+    def get_spectrum(self, t=None, t_start=None, t_end=None):
         """
-        Raw mass spectrum (pressure vs m/z).
-        *t* = time index; None → time-averaged over all points.
+        Mass spectrum (pressure vs m/z).
+
+        Parameters
+        ----------
+        t : int or None
+            Single time index.  When set, t_start/t_end are ignored.
+        t_start, t_end : float or None
+            Time range in seconds to average over.  When both are None and no
+            single index is given, defaults to the shutter-open window (set by
+            background_correct), or all time points if that is unavailable.
         """
-        if t is None:
-            return np.nanmean(self.pressure, axis=0)
-        return self.pressure[t, :]
+        if t is not None:
+            return self.pressure[t, :]
+
+        if t_start is not None or t_end is not None:
+            lo   = t_start if t_start is not None else self.time[0]
+            hi   = t_end   if t_end   is not None else self.time[-1]
+            mask = (self.time >= lo) & (self.time <= hi)
+            if not mask.any():
+                raise ValueError(f"No RGA scans in range [{lo:.1f}, {hi:.1f}] s.")
+            return np.nanmean(self.pressure[mask, :], axis=0)
+
+        if hasattr(self, "open_time") and hasattr(self, "close_time"):
+            mask = (self.time >= self.open_time) & (self.time <= self.close_time)
+            if mask.any():
+                return np.nanmean(self.pressure[mask, :], axis=0)
+
+        return np.nanmean(self.pressure, axis=0)
+
+    # ------------------------------------------------------------------
+    # Plotting
+    # ------------------------------------------------------------------
+
+    def plot_imshow(self, **kwargs):
+        """2-D pressure map (m/z vs time). See plotting.plot_imshow for kwargs."""
+        from .plotting import plot_imshow
+        return plot_imshow(self, **kwargs)
+
+    def plot_spectrum(self, **kwargs):
+        """Mass spectrum (pressure vs m/z). See plotting.plot_spectrum for kwargs."""
+        from .plotting import plot_spectrum
+        return plot_spectrum(self, **kwargs)
+
+    def plot_tey(self, **kwargs):
+        """TEY signal vs time with shutter shading. See plotting.plot_tey for kwargs."""
+        from .plotting import plot_tey
+        return plot_tey(self, **kwargs)
+
+    def plot_background(self, mz_val=None, ax=None):
+        """
+        Visualise background correction effect.
+        mz_val=int → time trace for that channel; None → spectrum comparison.
+        See plotting.plot_background for details.
+        """
+        from .plotting import plot_background
+        return plot_background(self, mz_val=mz_val, ax=ax)
+
+    def background_correct(self,
+                           window=30.0,
+                           gap_before=5.0,
+                           gap_after=10.0):
+        """
+        Per-channel linear background subtraction (in place).
+
+        Selects two fixed-duration beam-off windows anchored to the shutter
+        edges, fits a linear baseline through them for each m/z channel, and
+        subtracts it.  The original pressure array is preserved as
+        ``self._raw_pressure``.
+
+        Windows
+        -------
+        Before : [open_time  - gap_before - window,  open_time  - gap_before]
+        After  : [close_time + gap_after,             close_time + gap_after  + window]
+
+        Parameters
+        ----------
+        window     : float
+            Duration (s) of each background window (default 30 s).
+        gap_before : float
+            Gap (s) between the end of the pre-shutter window and shutter open
+            (default 5 s).
+        gap_after  : float
+            Gap (s) between shutter close and the start of the post-shutter
+            window (default 10 s).
+
+        Returns
+        -------
+        self  (for chaining)
+        """
+        edges     = np.diff(self.shutter.astype(int))
+        open_idx  = np.where(edges > 0)[0]
+        close_idx = np.where(edges < 0)[0]
+        if len(open_idx) == 0 or len(close_idx) == 0:
+            raise ValueError("Could not detect shutter open/close edges.")
+
+        open_time  = self.tey_time[open_idx[0] + 1]
+        close_time = self.tey_time[close_idx[0]]
+
+        # Pre-shutter window: ends gap_before before open, spans window seconds
+        off1_end   = open_time  - gap_before
+        off1_start = off1_end   - window
+        off1_mask  = (self.time >= off1_start) & (self.time <= off1_end)
+
+        # Post-shutter window: starts gap_after after close, spans window seconds
+        off2_start = close_time + gap_after
+        off2_end   = off2_start + window
+        off2_mask  = (self.time >= off2_start) & (self.time <= off2_end)
+
+        n1, n2 = off1_mask.sum(), off2_mask.sum()
+        if n1 + n2 < 2:
+            raise ValueError(
+                f"Not enough background points (before={n1}, after={n2}). "
+                f"Try increasing 'window' or reducing 'gap_before'/'gap_after'."
+            )
+        if n1 == 0:
+            warnings.warn(
+                f"No RGA scans in pre-shutter window "
+                f"[{off1_start:.1f}, {off1_end:.1f}] s — using post-close only.",
+                stacklevel=2,
+            )
+        if n2 == 0:
+            warnings.warn(
+                f"No RGA scans in post-shutter window "
+                f"[{off2_start:.1f}, {off2_end:.1f}] s — using pre-open only.",
+                stacklevel=2,
+            )
+
+        bg_mask = off1_mask | off2_mask
+        x_bg    = self.time[bg_mask]
+
+        # Preserve the original on first call; on re-runs, correct from raw
+        if not hasattr(self, "_raw_pressure"):
+            self._raw_pressure = self.pressure.copy()
+        source = self._raw_pressure
+        corrected = np.zeros_like(source)
+        for mz_idx in range(source.shape[1]):
+            col    = source[:, mz_idx]
+            coeffs = np.polyfit(x_bg, col[bg_mask], 1)
+            corrected[:, mz_idx] = col - np.polyval(coeffs, self.time)
+
+        self.pressure   = corrected
+        self.open_time  = open_time
+        self.close_time = close_time
+        self._bg_off1   = (off1_start, off1_end)
+        self._bg_off2   = (off2_start, off2_end)
+        return self
+
+    # ------------------------------------------------------------------
+    # rgakit integration
+    # ------------------------------------------------------------------
+
+    def to_rgakit(self) -> "rgakit.SpectrumStack":
+        """
+        Convert this measurement to a :class:`rgakit.SpectrumStack`.
+
+        If ``background_correct()`` has already been called, the corrected
+        pressures and shutter window are preserved in the returned stack.
+        Otherwise, the raw pressures are wrapped and background correction
+        can be applied later via :meth:`~rgakit.SpectrumStack.background_correct`.
+
+        Returns
+        -------
+        rgakit.SpectrumStack
+        """
+        try:
+            from rgakit import SpectrumStack
+        except ImportError as e:
+            raise ImportError(
+                "rgakit is required for to_rgakit(): pip install rgakit"
+            ) from e
+        return SpectrumStack.from_rga(self)
 
     # ------------------------------------------------------------------
     # Loader
     # ------------------------------------------------------------------
 
     @classmethod
-    def load(cls, dataset, files):
-        """Parse raw TEY + RGA histogram files and return an RGAMeasurement."""
+    def load(cls, dataset, files, background_correct=True,
+             window=30.0, gap_before=5.0, gap_after=10.0):
+        """Parse raw TEY + RGA histogram files and return an RGAMeasurement.
+
+        Parameters
+        ----------
+        background_correct : bool
+            If True (default), apply per-channel linear background subtraction
+            on load.  Set to False to keep raw pressures.
+        window, gap_before, gap_after : float
+            Forwarded to background_correct().  See that method for details.
+        """
         tey_file = _find_file(files, r'_TEY_DarkPD_',               ext='.txt')
         rga_file = _find_file(files, r'_RGA_histogram_scanspeed_',  ext='.txt')
 
@@ -214,8 +389,18 @@ class RGAMeasurement(Measurement):
 
         time = _timestamps_to_seconds(time_str)
 
-        return cls(dataset, sample_name,
-                   time, mz, pressure,
-                   tey_time, tey_signal, shutter,
-                   pd_ua, dark_pd_ua,
-                   x=x, y=y, scan_settings=scan_settings)
+        obj = cls(dataset, sample_name,
+                  time, mz, pressure,
+                  tey_time, tey_signal, shutter,
+                  pd_ua, dark_pd_ua,
+                  x=x, y=y, scan_settings=scan_settings)
+
+        if background_correct:
+            try:
+                obj.background_correct(window=window,
+                                       gap_before=gap_before,
+                                       gap_after=gap_after)
+            except Exception as e:
+                logger.warning(f"Background correction failed for {sample_name!r}: {e}")
+
+        return obj

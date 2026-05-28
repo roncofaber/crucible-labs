@@ -32,12 +32,11 @@ class CruxObj(object):
 
     def __init__(self, timestamp=None, creation_time=None, modification_time=None,
                  unique_id=None, project_id=None,
-                 owner_orcid=None, owner_user_id=None, **kwargs):
+                 owner_orcid=None, **kwargs):
 
         self._unique_id = unique_id
         self._project_id = project_id
         self._owner_orcid = owner_orcid
-        self._owner_user_id = owner_user_id
 
         # user-settable date (e.g. when the measurement was taken)
         self._timestamp = parse_datetime(timestamp)
@@ -64,10 +63,6 @@ class CruxObj(object):
     @property
     def owner_orcid(self):
         return self._owner_orcid
-    
-    @property
-    def owner_user_id(self):
-        return self._owner_user_id
 
     @property
     def client(self):
@@ -97,6 +92,24 @@ class CruxObj(object):
 
     def open_in_browser(self):
         webbrowser.open(self.link)
+
+    def graph(self, recursive=True, as_networkx=True):
+        """Return the entity graph centred on this object.
+
+        Parameters
+        ----------
+        recursive : bool
+            Traverse the full connected component (default True).
+            False returns only first-degree neighbours.
+        as_networkx : bool
+            Return a networkx DiGraph (default True).
+            False returns the raw node-link dict from the API.
+        """
+        return self.client.graphs.get(
+            self.unique_id,
+            recursive   = recursive,
+            as_networkx = as_networkx,
+        )
 
     @property
     def timestamp(self):
