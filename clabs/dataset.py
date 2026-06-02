@@ -44,10 +44,7 @@ class Dataset(CruxObj):
         )
         
         # easy way to access metadata
-        try:
-            self._scientific_metadata = dst_dict.get("scientific_metadata")["scientific_metadata"]
-        except (TypeError, KeyError):
-            self._scientific_metadata = None
+        self._scientific_metadata = self._dataset.scientific_metadata
         
         # a dataset can be linked to multiple samples (e.g. a tray scan)
         self._samples         = []

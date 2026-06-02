@@ -78,6 +78,10 @@ class Sample(CruxObj):
         return self._sample.description
 
     @property
+    def scientific_metadata(self):
+        return self._sample.scientific_metadata
+
+    @property
     def links(self):
         return self._sample.links
     
