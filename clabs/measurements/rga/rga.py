@@ -59,7 +59,7 @@ def _parse_tey_file(path):
     data    = np.loadtxt(path, skiprows=1, delimiter='\t', dtype=float)
     time    = data[:, 0]
     signal  = data[:, 1]
-    shutter = data[:, 2]
+    shutter = data[:, 2] if data.shape[1] > 2 else np.zeros(len(time))
 
     bn = os.path.basename(path)
     pd_ua      = _extract_float(bn, r'_PD_([-\d.]+)uA')
@@ -216,24 +216,25 @@ class RGAMeasurement(Measurement):
     # ------------------------------------------------------------------
 
     def plot_imshow(self, **kwargs):
-        """2-D pressure map (m/z vs time). See plotting.plot_imshow for kwargs."""
+        """2-D pressure map (m/z vs time). Returns (fig, ax). See plotting.plot_imshow for kwargs."""
         from .plotting import plot_imshow
         return plot_imshow(self, **kwargs)
 
     def plot_spectrum(self, **kwargs):
-        """Mass spectrum (pressure vs m/z). See plotting.plot_spectrum for kwargs."""
+        """Mass spectrum (pressure vs m/z). Returns (fig, ax). See plotting.plot_spectrum for kwargs."""
         from .plotting import plot_spectrum
         return plot_spectrum(self, **kwargs)
 
     def plot_tey(self, **kwargs):
-        """TEY signal vs time with shutter shading. See plotting.plot_tey for kwargs."""
+        """TEY signal vs time with shutter shading. Returns (fig, ax). See plotting.plot_tey for kwargs."""
         from .plotting import plot_tey
         return plot_tey(self, **kwargs)
 
     def plot_background(self, mz_val=None, ax=None):
         """
         Visualise background correction effect.
-        mz_val=int → time trace for that channel; None → spectrum comparison.
+        mz_val=int → (fig, ax) time trace for that channel;
+        None → (fig, axes) spectrum comparison.
         See plotting.plot_background for details.
         """
         from .plotting import plot_background

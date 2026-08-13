@@ -133,6 +133,46 @@ class Sample(CruxObj):
                       if p in (self._resolve_attr(m, attr, self) or "").lower()]
         return result
 
+    def load_measurements(self, mtype=None, client=None, cache_dir=None,
+                          use_cache=True, overwrite_existing=False, **kwargs):
+        """
+        Download and parse this sample's own linked datasets.
+
+        Unlike ``CrucibleProject.load_measurements()`` (scoped by sample
+        *type*, i.e. every sample of that type), this loads just the
+        datasets already linked to this one sample.
+
+        Parameters
+        ----------
+        mtype : str, optional
+            Only load datasets of this measurement type. Default: every
+            linked dataset that has a registered loader.
+        client, cache_dir : optional
+            Default to the global nano-crucible client / cache dir.
+        use_cache, overwrite_existing : see Dataset.load
+        **kwargs
+            Forwarded to the loader (e.g. ``background_correct`` for RGA).
+        """
+        from crucible.config import get_client, get_cache_dir
+
+        client    = client or get_client()
+        cache_dir = cache_dir or (str(get_cache_dir()) + "/datasets")
+
+        targets = [d for d in self._datasets if mtype is None or d.dtype == mtype]
+        if mtype is not None and not targets:
+            logger.warning(f"No {mtype!r} dataset linked to {self.sample_name!r}")
+
+        for ds in targets:
+            try:
+                ds.load(client, cache_dir, use_cache=use_cache,
+                       overwrite_existing=overwrite_existing, **kwargs)
+            except NotImplementedError:
+                continue
+            except Exception as e:
+                logger.error(f"Failed to load dataset {ds.name!r} for {self.sample_name!r}: {e}")
+
+        return self
+
     def assign_measurement(self, measurement, _skip_reciprocal=False):
         """Link a Measurement to this sample (bidirectional)."""
         self._measurements[measurement.unique_id] = measurement
@@ -150,7 +190,7 @@ class Sample(CruxObj):
                 return
         has_image_dataset = any(d.dtype == "sample well image" for d in self._datasets)
         if has_image_dataset:
-            logger.warning(f"Image dataset found for {self.sample_name!r} but not loaded — call load_measurements('sample well image') first.")
+            logger.warning(f"Image dataset found for {self.sample_name!r} but not loaded — call sample.load_measurements('sample well image') first.")
         else:
             logger.info(f"No image dataset linked to {self.sample_name!r}.")
 
@@ -158,6 +198,13 @@ class Sample(CruxObj):
         return f"{self.__class__.__name__}({self.name!r})"
 
     def __getattr__(self, name):
+        """Shortcut for measurements by mtype, e.g. ``sample.uvvis``.
+
+        Returns the single matching measurement, or a list if more than one
+        is loaded (e.g. a sample rescanned post-RGA has two ``uvvis``
+        measurements). Use ``get_measurements(mtype=..., exclude=..., include=...)``
+        to pick a specific one unambiguously when that matters.
+        """
         if name == "_sample":
             raise AttributeError("_sample not initialized")
         matches = [m for m in self._measurements.values() if m.mtype == name]

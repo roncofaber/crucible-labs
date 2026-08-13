@@ -22,8 +22,13 @@ logger = logging.getLogger(__name__)
 class CrucibleProject:
 
     def __init__(self, project_id, cache_dir=None, use_cache=True,
-                 overwrite_cache=False):
-
+                 overwrite_cache=False, client=None):
+        
+        # set up crucible client
+        if client is None:
+            client = get_client()
+        self._client = client
+        
         # store cache settings
         self._cache_dir       = cache_dir if cache_dir is not None else str(get_cache_dir())
         self._use_cache       = use_cache
@@ -52,7 +57,7 @@ class CrucibleProject:
 
     @property
     def client(self):
-        return get_client()
+        return self._client
 
     @property
     def project_id(self):
@@ -173,7 +178,17 @@ class CrucibleProject:
 
     #%% measurement loading
 
-    def _get_measurement_data(self, measurement_type, description, sample_type=None, **kwargs):
+    def _resolve_samples(self, samples):
+        """Normalise samples= (SampleCollection, Sample list, or name list) to a SampleCollection."""
+        if isinstance(samples, SampleCollection):
+            return samples
+        resolved = [s if isinstance(s, Sample) else self.get_sample(sample_name=s) for s in samples]
+        missing  = [s for s, r in zip(samples, resolved) if r is None]
+        if missing:
+            logger.warning(f"Could not resolve samples: {missing}")
+        return SampleCollection(samples=[s for s in resolved if s is not None], project_id=self._project_id)
+
+    def _get_measurement_data(self, measurement_type, description, sample_type=None, samples=None, **kwargs):
         """
         Download and parse all datasets of a given measurement type.
 
@@ -188,6 +203,9 @@ class CrucibleProject:
             Label for the progress bar.
         sample_type : str, optional
             If given, only process datasets belonging to samples of this type.
+        samples : SampleCollection or list of Sample/str, optional
+            If given, scope loading to exactly these samples instead of a
+            whole sample_type. Takes precedence over sample_type.
         **kwargs
             Forwarded to the measurement-type loader (e.g. window, gap_before).
         """
@@ -195,7 +213,10 @@ class CrucibleProject:
         from tqdm.contrib.logging import logging_redirect_tqdm
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
-        collection = self._samples.filter(sample_type=sample_type) if sample_type else self._samples
+        if samples is not None:
+            collection = self._resolve_samples(samples)
+        else:
+            collection = self._samples.filter(sample_type=sample_type) if sample_type else self._samples
         datasets   = collection.samples_datasets.filter(measurement=measurement_type)
         cache_dir  = self._cache_dir + "/datasets"
         n          = len(datasets)
@@ -229,8 +250,10 @@ class CrucibleProject:
                     )
                 except NotImplementedError:
                     logger.warning(f"No loader for {dataset.dtype!r}, skipping {dataset.name!r}")
+                except Exception as e:
+                    logger.error(f"Failed to load dataset {dataset.name!r}: {e}")
 
-    def load_measurements(self, measurement_type, sample_type=None, **kwargs):
+    def load_measurements(self, measurement_type, sample_type=None, samples=None, **kwargs):
         """
         Download and parse all datasets of a given measurement type.
 
@@ -240,6 +263,11 @@ class CrucibleProject:
             The mtype string to filter datasets on (e.g. 'pollux_oospec_multipos_line_scan').
         sample_type : str, optional
             If given, only process datasets belonging to samples of this type.
+        samples : SampleCollection or list of Sample/str, optional
+            If given, scope loading to exactly these samples instead of a
+            whole sample_type — useful for a demo or a targeted re-run
+            without downloading the whole project. Takes precedence over
+            sample_type.
         **kwargs
             Forwarded to the measurement-type loader.  For RGA datasets:
             ``background_correct`` (bool), ``window`` (s), ``gap_before`` (s),
@@ -251,8 +279,23 @@ class CrucibleProject:
             measurement_type = measurement_type,
             description      = measurement_type,
             sample_type      = sample_type,
+            samples          = samples,
             **kwargs,
         )
+
+    #%% summary
+
+    def summary(self):
+        """Print and return sample/dataset counts broken down by type."""
+        lines = [repr(self), "", f"Samples ({len(self.samples)}):"]
+        for st in sorted(self.samples.sample_types):
+            lines.append(f"  {st:<25} {len(self.samples.filter(sample_type=st))}")
+        lines.append(f"\nDatasets ({len(self.datasets)}):")
+        for dt in sorted(self.datasets.dataset_types):
+            lines.append(f"  {dt:<35} {len(self.datasets.filter(measurement=dt))}")
+        text = "\n".join(lines)
+        print(text)
+        return text
 
     #%% table export
 

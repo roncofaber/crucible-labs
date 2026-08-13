@@ -23,8 +23,8 @@ from clabs.utils.auxiliary import parse_datetime
 #%%
 
 dtype2ext = {
-    "sample"  : "sample-graph",
-    "dataset" : "dataset",
+    "sample"  : "samples",
+    "dataset" : "datasets",
     "main"    : "",
     }
 

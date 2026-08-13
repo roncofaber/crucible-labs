@@ -26,11 +26,14 @@ import h5py
 def h5_to_samples(dataset, h5filename, erange=None):
     try:
         samples = h5_to_samples_new(dataset, h5filename, erange=erange)
-    except:
+    except Exception as new_exc:
         try:
             samples = h5_to_samples_old(dataset, h5filename, erange=erange)
-        except:
-            raise ValueError
+        except Exception as old_exc:
+            raise ValueError(
+                f"Failed to parse {h5filename!r} as new-format H5 ({new_exc!r}) "
+                f"or old-format H5 ({old_exc!r})"
+            ) from old_exc
     return samples
 
 
@@ -65,13 +68,13 @@ def h5_to_samples_new(dataset, h5filename, erange=None):
         # get wavelengths (same for all measurments)
         try:
             wavelengths = h5file['measurement/pollux_oospec_multipos_line_scan/wavelengths'][()]
-        except:
+        except Exception:
             wavelengths = h5file['wavelengths'][()]
 
         # get measurements settings
         try:
             measurement_settings = dict(h5file['measurement/pollux_oospec_multipos_line_scan/settings'].attrs)
-        except:
+        except Exception:
             measurement_settings = dict(h5file['settings'].attrs)
 
         # isolate relevant H5 group and get list of positions
@@ -139,14 +142,14 @@ def h5_to_samples_old(dataset, h5filename, erange=None):
             sample_attrs["y_positions"] = h5group[poskey]['y_positions'][()]
             try:
                 sample_attrs["x_positions"] = h5group[poskey]['x_positions'][()]
-            except:
+            except Exception:
                 sample_attrs["x_positions"] = np.array(
                     [h5group[poskey]['x_center'][()]]*len(sample_attrs["y_positions"]))
 
             # get raw intensities
             try:
                 raw_intensities = h5group[poskey]['raw_intensities'][()]
-            except:
+            except Exception:
                 raw_intensities = h5group[poskey]['spectral_data'][()]
 
             # complete sample attributes

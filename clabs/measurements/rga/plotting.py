@@ -111,7 +111,7 @@ def plot_imshow(rga, log=True, mz_range=None, ax=None, cmap="viridis",
         fig.tight_layout()
         fig.show()
 
-    return ax
+    return fig, ax
 
 
 def plot_spectrum(rga, t=None, t_start=None, t_end=None,
@@ -138,6 +138,8 @@ def plot_spectrum(rga, t=None, t_start=None, t_end=None,
     standalone = ax is None
     if standalone:
         fig, ax = plt.subplots(figsize=(14 * cm, 6 * cm))
+    else:
+        fig = ax.get_figure()
 
     spectrum = rga.get_spectrum(t, t_start=t_start, t_end=t_end)
     if t is not None:
@@ -168,10 +170,10 @@ def plot_spectrum(rga, t=None, t_start=None, t_end=None,
     ax.legend(fontsize=fs - 1)
 
     if standalone:
-        ax.get_figure().tight_layout()
-        ax.get_figure().show()
+        fig.tight_layout()
+        fig.show()
 
-    return ax
+    return fig, ax
 
 
 def plot_background(rga, mz_val=None, ax=None):
@@ -209,6 +211,8 @@ def plot_background(rga, mz_val=None, ax=None):
         standalone = ax is None
         if standalone:
             fig, ax = plt.subplots(figsize=(14 * cm, 6 * cm))
+        else:
+            fig = ax.get_figure()
 
         ax.plot(rga.time, raw,       color="steelblue",   lw=1.2, label="Raw")
         ax.plot(rga.time, baseline,  color="darkorange",  lw=1.2,
@@ -232,10 +236,10 @@ def plot_background(rga, mz_val=None, ax=None):
         ax.legend(fontsize=fs - 1)
 
         if standalone:
-            ax.get_figure().tight_layout()
-            ax.get_figure().show()
+            fig.tight_layout()
+            fig.show()
 
-        return ax
+        return fig, ax
 
     else:
         # ── spectrum comparison view ─────────────────────────────────────
@@ -285,7 +289,7 @@ def plot_background(rga, mz_val=None, ax=None):
             fig.tight_layout()
             fig.show()
 
-        return axes
+        return fig, axes
 
 
 def plot_tey(rga, ax=None, **kwargs):
@@ -302,6 +306,8 @@ def plot_tey(rga, ax=None, **kwargs):
     standalone = ax is None
     if standalone:
         fig, ax = plt.subplots(figsize=(14 * cm, 5 * cm))
+    else:
+        fig = ax.get_figure()
 
     ax.plot(rga.tey_time, rga.tey_signal * 1e9, color="steelblue",
             lw=1, **kwargs)
@@ -323,7 +329,7 @@ def plot_tey(rga, ax=None, **kwargs):
         ax.legend(fontsize=fs - 1)
 
     if standalone:
-        ax.get_figure().tight_layout()
-        ax.get_figure().show()
+        fig.tight_layout()
+        fig.show()
 
-    return ax
+    return fig, ax

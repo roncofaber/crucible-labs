@@ -21,6 +21,20 @@ import matplotlib.pyplot as plt
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
+# Above this many nodes, layout + rendering gets slow (minutes) and the plot
+# becomes unreadable. Shared hub resources (e.g. trays, carriers) can pull
+# most of a production project into one connected component.
+_LARGE_GRAPH_NODE_WARNING = 300
+
+
+def _warn_if_large(n_nodes, what):
+    if n_nodes > _LARGE_GRAPH_NODE_WARNING:
+        logger.warning(
+            f"{what} has {n_nodes} nodes — layout/rendering may take a while "
+            f"and the plot may be unreadable. Consider plot_connected_component, "
+            f"plot_ancestors, plot_descendants, or plot_neighbors for a bounded view."
+        )
+
 
 def plot_direct_neighbors(graph, node, figsize=None, node_size=None,
                           font_size=None, highlight_color='#f39c12'):
@@ -190,6 +204,7 @@ def plot_extended_family(graph, node, figsize=None, node_size=None,
     subgraph = graph.nx.subgraph(component_nodes).copy()
 
     n_nodes   = len(component_nodes)
+    _warn_if_large(n_nodes, f"Extended family of {node.name}")
     figsize   = figsize   or _calculate_figsize(n_nodes)
     node_size = node_size or _calculate_node_size(n_nodes)
     font_size = font_size or _calculate_font_size(n_nodes)
@@ -219,6 +234,7 @@ def plot_full_graph(graph, figsize=None, node_size=None, font_size=None,
                     layout='hierarchical', node_type_colors=None):
     """Plot the complete genealogy graph."""
     n_nodes   = graph.nx.number_of_nodes()
+    _warn_if_large(n_nodes, "Full genealogy graph")
     figsize   = figsize   or _calculate_figsize(n_nodes)
     node_size = node_size or _calculate_node_size(n_nodes)
     font_size = font_size or _calculate_font_size(n_nodes)
