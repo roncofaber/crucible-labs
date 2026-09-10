@@ -56,7 +56,15 @@ def _parse_tey_file(path):
         dark_pd_ua : float         – dark PD current (µA)
         x, y    : float            – stage coordinates
     """
-    data    = np.loadtxt(path, skiprows=1, delimiter='\t', dtype=float)
+    data    = np.loadtxt(
+        path,
+        skiprows=1,
+        delimiter='\t',
+        dtype=float,
+        ndmin=2,
+    )
+    if data.shape[0] == 0 or data.shape[1] < 2:
+        raise ValueError(f"TEY file must contain at least two columns: {path}")
     time    = data[:, 0]
     signal  = data[:, 1]
     shutter = data[:, 2] if data.shape[1] > 2 else np.zeros(len(time))
@@ -79,7 +87,17 @@ def _parse_rga_file(path):
         scan_settings : dict
         sample_name   : str or None
     """
-    data     = np.loadtxt(path, skiprows=2, delimiter='\t', dtype=str)
+    data     = np.loadtxt(
+        path,
+        skiprows=2,
+        delimiter='\t',
+        dtype=str,
+        ndmin=2,
+    )
+    if data.shape[0] == 0 or data.shape[1] < 2:
+        raise ValueError(
+            f"RGA file must contain a timestamp and pressure data: {path}"
+        )
     time_str = data[:, 0].tolist()
     pressure = data[:, 1:].astype(float)        # shape (T, M)
     mz       = np.arange(1, pressure.shape[1] + 1)
