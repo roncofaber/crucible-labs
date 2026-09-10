@@ -49,6 +49,27 @@ df = tfilms.to_dataframe(fields=fields, include_ancestors=True)
 uvvis = tfilms.get_measurements(mtype="uvvis", exclude={"dataset.session": "RGA"})
 ```
 
+## Image analysis
+
+Loaded sample-well images expose perceptual color and spatial inhomogeneity methods directly on `TFImage`:
+
+```python
+proj.load_measurements("sample well image", samples=["TF000849"])
+image = proj.get_sample(sample_name="TF000849").get_measurements(mtype="image")[0]
+
+roi = image.get_roi()
+metrics = image.get_inhomogeneity()
+delta_e = metrics["delta_e_2000_median"]
+hue_dispersion = metrics["hue_circular_dispersion"]
+morphology = image.get_morphology_metrics()
+spatial = image.get_spatial_metrics(grid=(8, 8))
+
+fig, axes = image.plot_inhomogeneity()
+fig, axes = image.plot_morphology()
+```
+
+The default region of interest is a centered square spanning 40% of the shorter image dimension. `get_inhomogeneity()` returns separate CIELAB lightness, chroma, circular hue, CIEDE2000, spatial-block, gradient, saturation, and image-QC metrics. `get_morphology_metrics()` describes robust local-color anomalies, connected-component shapes, edge density, high-pass lightness energy, and directional color differences. These unsupervised regions should not be interpreted as physical defects without validation. Use `get_color_maps()`, `get_morphology_maps()`, `get_anomaly_map()`, `get_spatial_metrics()`, and `get_histogram()` when pixel-level or grid-resolved outputs are needed.
+
 ## Requirements
 
 - Python ≥ 3.8
