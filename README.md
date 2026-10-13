@@ -1,6 +1,6 @@
 # crucible-labs
 
-`clabs` is a Python interface for managing and analysing multimodal datasets stored in [Crucible](https://crucible.lbl.gov/). It handles sample/dataset graphs, measurement loading, and export workflows.
+`clabs` is a Python analysis interface for multimodal datasets stored in [Crucible](https://crucible.lbl.gov/). It materializes project sample and dataset graphs, loads scientific measurements, builds analysis tables, and supports plotting and export workflows. Authentication, API transport, and file transfer are provided by [nano-crucible](https://github.com/MolecularFoundryCrucible/nano-crucible).
 
 ## Installation
 
@@ -27,7 +27,7 @@ import clabs
 from clabs import FieldSpec as F
 from clabs.project import CrucibleProject
 
-# load project — fetches all samples, datasets, and relationships
+# load project - fetches all samples, datasets, and relationships
 proj = CrucibleProject("10k_perovskites")
 
 # filter by sample type
@@ -77,6 +77,15 @@ The default region of interest is a centered square spanning 40% of the shorter 
 
 See `pyproject.toml` for full dependency list.
 
+## Documentation
+
+- [Examples](examples/README.md)
+- [Architecture](docs/architecture.md)
+- [Nano compatibility policy](docs/nano-compatibility.md)
+- [Agent and developer guidance](AGENTS.md)
+
+Creating a `CrucibleProject` reads project data from the live Crucible API. Measurement loading can download files and populate the persistent Nano cache. The example scripts are live workflows and are not safe offline checks.
+
 ## License
 
-MIT — see LICENSE file for details.
+MIT - see [LICENSE](LICENSE) for details.

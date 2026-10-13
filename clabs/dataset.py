@@ -103,9 +103,10 @@ class Dataset(CruxObj):
         if local and not overwrite_existing:
             self._files = local
         else:
-            self._files = client.datasets._fetch_files(
+            self._files = client.datasets.download(
                 self.unique_id,
-                output_dir         = dataset_dir,
+                output_dir         = cache_dir,
+                no_record          = True,
                 overwrite_existing = overwrite_existing,
             )
 
