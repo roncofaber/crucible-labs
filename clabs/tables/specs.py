@@ -36,6 +36,18 @@ class FieldSpec:
         If given, restrict the lookup to sources whose ``sample_type``
         matches this string. Useful for targeting a specific level of the
         genealogy (e.g. ``"precursor solution"``).
+    source : callable, optional
+        ``source(sample)`` returns the Sample or Dataset to read, or ``None``.
+        The label is then only a name, and every key always yields a column.
+        ``kind="attribute"`` reads attributes of the returned resource; any
+        other kind reads its ``scientific_metadata``. Cannot be combined with
+        ``type`` or ``sample_type``.
+    prefix : str
+        Prepended to every column name of this spec.
+    rename : dict, optional
+        ``{key: column}`` replacing the default leaf-key column name.
+    transform : callable, optional
+        Applied to each non-``None`` value.
 
     Examples
     --------
@@ -56,19 +68,41 @@ class FieldSpec:
     ...     },
     ...     include_ancestors=True,
     ... )
+    >>> # choose the source explicitly, with stable and collision-free columns
+    >>> df = project.to_dataframe(
+    ...     fields={"a": F("solvent", source=component_a_dataset, prefix="ss_a_")},
+    ...     strict=True,
+    ... )
     """
 
     _KINDS = ("dataset", "sample", "attribute")
 
-    def __init__(self, *keys, kind="dataset", type=None, sample_type=None):
+    def __init__(self, *keys, kind="dataset", type=None, sample_type=None,
+                 source=None, prefix="", rename=None, transform=None):
         if kind not in self._KINDS:
             raise ValueError(
                 f"kind must be one of {self._KINDS}, got {kind!r}"
             )
+        if source is not None and (type is not None or sample_type is not None):
+            raise ValueError("source cannot be combined with type or sample_type")
         self.keys        = list(keys)
         self.kind        = kind
         self.type        = type        # explicit mtype override (kind="dataset" only)
         self.sample_type = sample_type
+        self.source      = source
+        self.prefix      = prefix
+        self.rename      = rename or {}
+        self.transform   = transform
+
+    def column(self, key):
+        """Column name produced for ``key``."""
+        return self.prefix + self.rename.get(key, key.split(".")[-1])
+
+    def apply(self, value):
+        """Apply ``transform`` to a non-``None`` value."""
+        if value is None or self.transform is None:
+            return value
+        return self.transform(value)
 
     def __repr__(self):
         parts = [repr(k) for k in self.keys]
@@ -78,6 +112,10 @@ class FieldSpec:
             parts.append(f"type={self.type!r}")
         if self.sample_type is not None:
             parts.append(f"sample_type={self.sample_type!r}")
+        if self.source is not None:
+            parts.append(f"source={self.source!r}")
+        if self.prefix:
+            parts.append(f"prefix={self.prefix!r}")
         return f"FieldSpec({', '.join(parts)})"
 
 

@@ -70,6 +70,37 @@ fig, axes = image.plot_morphology()
 
 The default region of interest is a centered square spanning 40% of the shorter image dimension. `get_inhomogeneity()` returns separate CIELAB lightness, chroma, circular hue, CIEDE2000, spatial-block, gradient, saturation, and image-QC metrics. `get_morphology_metrics()` describes robust local-color anomalies, connected-component shapes, edge density, high-pass lightness energy, and directional color differences. These unsupervised regions should not be interpreted as physical defects without validation. Use `get_color_maps()`, `get_morphology_maps()`, `get_anomaly_map()`, `get_spatial_metrics()`, and `get_histogram()` when pixel-level or grid-resolved outputs are needed.
 
+## Exporting a collection
+
+`export_samples` writes chosen measurements into one folder per sample. A dataset shared by many samples downloads once, cached files are checked against Crucible's file list, and an interrupted run can be repeated: finished outputs are skipped.
+
+```python
+from clabs.export import MeasurementExport, copy_file_writer, export_samples
+from crucible.config import get_cache_dir
+
+images = {s.name: s.datasets[0] for s in tfilms}   # your own selection rule
+export = MeasurementExport(
+    name="well",
+    selection=images,
+    writer=copy_file_writer,
+    filename=lambda sample, files: f"{sample}_well.png",
+    describe=lambda path: {"path": str(path)},
+)
+result = export_samples(proj.client, "my_collection", f"{get_cache_dir()}/datasets", [export])
+print(result.failures)
+```
+
+With `multiple=True`, a `MeasurementExport` takes a list of datasets per sample, and `copy_folder_writer` with `folder_is_current` copies every file of each dataset into its own folder.
+
+`clabs.measurements.uvvis.split.split_uvvis_file` splits a multi-sample UV-Vis HDF5 into per-sample files without changing the spectra.
+
+For a table with stable, explicit columns, `FieldSpec` accepts `source`, `prefix`, `rename` and `transform`, and `to_dataframe(strict=True)` raises on column collisions instead of overwriting:
+
+```python
+fields = {"precursor": F("mixing_ratio", source=my_precursor_dataset, prefix="ps_")}
+df = tfilms.to_dataframe(fields=fields, strict=True)
+```
+
 ## Requirements
 
 - Python ≥ 3.8

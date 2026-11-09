@@ -11,11 +11,14 @@ Created on Fri Jan 16 18:22:21 2026
 @author: roncofaber
 """
 
-import os
 import logging
+import os
+
+import requests
 
 # internal modules
 from clabs.core import CruxObj
+from clabs.export import DatasetFileError, ensure_dataset_files
 from clabs.models import DatasetModel
 
 # Set up logger for this module
@@ -86,29 +89,39 @@ class Dataset(CruxObj):
         """Register a loader callable for a given measurement type string."""
         cls._loaders[mtype] = loader
 
-    @staticmethod
-    def _list_local_files(dataset_dir):
-        """Return full file paths in dataset_dir, or [] if missing/empty."""
-        if os.path.isdir(dataset_dir) and os.listdir(dataset_dir):
-            return [os.path.join(dataset_dir, f) for f in os.listdir(dataset_dir)]
-        return []
-
     def prefetch(self, client, cache_dir, overwrite_existing=False):
         """
         Download dataset files without parsing. Thread-safe: no shared state is touched.
         Call this in a thread pool before load() to overlap network I/O with parsing.
         """
-        dataset_dir = os.path.join(cache_dir, self.unique_id)
-        local = self._list_local_files(dataset_dir)
-        if local and not overwrite_existing:
-            self._files = local
-        else:
-            self._files = client.datasets.download(
-                self.unique_id,
-                output_dir         = cache_dir,
-                no_record          = True,
-                overwrite_existing = overwrite_existing,
-            )
+        self._files = self._fetch(client, cache_dir, overwrite_existing=overwrite_existing)
+
+    def _local_files(self, cache_dir):
+        folder = os.path.join(cache_dir, self.unique_id)
+        return [os.path.join(root, name) for root, _, names in os.walk(folder) for name in names]
+
+    def _fetch(self, client, cache_dir, use_cache=True, overwrite_existing=False):
+        """Paths of this dataset's current files, downloading what is missing or invalid.
+
+        The dataset's file list decides what is current, because a re-uploaded
+        file can leave its predecessor behind in the cache.
+        """
+        if use_cache and not overwrite_existing:
+            try:
+                files = ensure_dataset_files(client, self.unique_id, cache_dir, check_hash=False)
+            except DatasetFileError as error:
+                logger.warning(f"{self.name!r}: {error}")
+                return []
+            except requests.exceptions.RequestException as error:
+                logger.warning(f"{self.name!r}: could not check files ({error}), using local copies")
+                return self._local_files(cache_dir)
+            return [str(f.path) for f in files]
+        return client.datasets.download(
+            self.unique_id,
+            output_dir         = cache_dir,
+            overwrite_existing = overwrite_existing,
+            no_record          = True,
+        )
 
     def load(self, client, cache_dir, use_cache=True, overwrite_existing=False, **kwargs):
         """
@@ -121,21 +134,10 @@ class Dataset(CruxObj):
         if loader is None:
             raise NotImplementedError(f"No loader registered for dtype {self.dtype!r}")
 
-        # use pre-fetched files if available, otherwise download now
         if self._files is not None:
             files = self._files
         else:
-            dataset_dir = os.path.join(cache_dir, self.unique_id)
-            local = self._list_local_files(dataset_dir)
-            if use_cache and not overwrite_existing and local:
-                files = local
-            else:
-                files = client.datasets.download(
-                    self.unique_id,
-                    output_dir         = dataset_dir,
-                    overwrite_existing = overwrite_existing,
-                    no_record          = True,
-                )
+            files = self._fetch(client, cache_dir, use_cache, overwrite_existing)
 
         if not files:
             logger.warning(f"No files downloaded for dataset {self.name!r}")

@@ -32,9 +32,9 @@ The unified `Graph` adds every Labs resource as a NetworkX node and adds same-ki
 
 ## Files, caches, and measurements
 
-The default cache root comes from Nano configuration. Project measurement loading uses a `datasets` child directory, filters datasets through sample collections, and prefetches dataset files concurrently. `Dataset.prefetch()` delegates transfer to Nano's public `datasets.download()` operation with record output disabled. Labs decides whether existing local files satisfy the request and retains the downloaded paths for parsing.
+The default cache root comes from Nano configuration. Project measurement loading uses a `datasets` child directory, filters datasets through sample collections, and prefetches dataset files concurrently. `Dataset.prefetch()` goes through `clabs.export.ensure_dataset_files()`, which reads the dataset's current file list from Nano, checks cached files against it, and delegates any transfer to Nano's public `datasets.download()` operation with record output disabled. The file list decides what is current, because a re-uploaded file can leave its predecessor in the cache.
 
-`Dataset.load()` selects a loader using the dataset measurement type. It consumes prefetched paths when available, otherwise checks the local dataset directory and delegates a download to Nano when required. A loader receives the Labs `Dataset`, the local file paths, and loader-specific keyword arguments. It returns one measurement object, a list of measurement objects, or `None`.
+`Dataset.load()` selects a loader using the dataset measurement type. It consumes prefetched paths when available, otherwise obtains them the same way. A loader receives the Labs `Dataset`, the local file paths, and loader-specific keyword arguments. It returns one measurement object, a list of measurement objects, or `None`.
 
 Loaded measurements are attached to graph-linked samples. A single measurement linked to a single sample uses that association directly. Multi-sample results resolve samples by measurement identifiers or names.
 
@@ -44,10 +44,16 @@ Loaded measurements are attached to graph-linked samples. A single measurement l
 
 Each loader owns scientific file selection and parsing for its format. Nano owns obtaining the files, while Labs owns interpreting their contents and producing measurement objects.
 
+## Exports
+
+`clabs.export.export_samples()` writes selected measurements to one folder per sample. A `MeasurementExport` supplies the selection, a per-dataset writer, an output name, and a way to describe an output skipped on resume. Datasets shared by many samples are downloaded once and written together, one source file at a time, so spectra are not held in memory. Outputs are written through a temporary file. A failing dataset is recorded with its samples, and the run continues.
+
+The generic layer knows nothing about what a project counts as valid. Rules such as session labels, scan choice, table columns, and label review belong in the code that uses Labs for a given project, outside this repository.
+
 ## Collections, tables, and plots
 
 `SampleCollection` and `DatasetCollection` provide indexed lookup and domain-specific filtering. A sample collection can derive the unique datasets associated with its samples and aggregate loaded measurements.
 
-`RowSpec` selects sample or dataset row granularity. `FieldSpec` selects dataset metadata, sample metadata, or Python attributes. Table construction can walk sample ancestors and extract fields from their linked datasets, preserving the distinction between genealogy and sample-dataset association.
+`RowSpec` selects sample or dataset row granularity. `FieldSpec` selects dataset metadata, sample metadata, or Python attributes, optionally from a resource chosen by a `source` callable, with stable column names through `prefix` and `rename`. Table construction can walk sample ancestors and extract fields from their linked datasets, preserving the distinction between genealogy and sample-dataset association.
 
 Graph plotting, thin-film grids, measurement plotting, and report generation consume materialized Labs objects. They do not own API transport, but they may create figures, files, or browser-visible output.

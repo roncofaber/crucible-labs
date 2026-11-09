@@ -11,7 +11,8 @@ Labs currently consumes these Nano contracts:
 - Nano `Project`, `Dataset`, and `Sample` model classes.
 - Project, resource, and relationship graph reads.
 - Dataset and sample listing with metadata and unbounded pagination.
-- Dataset downloads through the public `datasets.download()` operation, including `no_record` and `overwrite_existing` behavior.
+- Dataset downloads through the public `datasets.download()` operation, including `no_record`, `overwrite_existing`, and `include` behavior.
+- Dataset file records from `datasets.list_files()`, including `size` and `sha256_hash`, and `crucible.utils.io.storage_display_name()` for local file names.
 
 ## Version bounds
 

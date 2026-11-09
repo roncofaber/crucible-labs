@@ -13,7 +13,7 @@ Created on Thu Feb  6 2026
 
 import logging
 from crucible.config import get_client
-from .tables import FieldSpec, RowSpec, build_table
+from .tables import build_table
 
 logger = logging.getLogger(__name__)
 
@@ -155,10 +155,10 @@ class SampleCollection(CrucibleCollection):
             result = [s for s in result if any(m.mtype == has_measurement for m in s.measurements)]
         return SampleCollection(samples=result, project_id=self._project_id)
 
-    def to_dataframe(self, rows=None, fields=None, include_ancestors=False):
+    def to_dataframe(self, rows=None, fields=None, include_ancestors=False, strict=False):
         """Build a DataFrame from this collection. See :func:`clabs.tables.build_table`."""
         return build_table(self, rows=rows, fields=fields,
-                           include_ancestors=include_ancestors)
+                           include_ancestors=include_ancestors, strict=strict)
 
     def _make_collection(self, items):
         return SampleCollection(samples=items, project_id=self._project_id)
