@@ -11,7 +11,11 @@ Created on Fri Jan 16 17:32:08 2026
 """
 
 import logging
+import os
+import tempfile
+from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -132,3 +136,21 @@ def filter_links(links):
         return filtered_links[0]  # Return the first valid link
     
     return {}  # Return empty dict for unsupported types
+
+
+@contextmanager
+def atomic_path(target):
+    """Yield a temp path next to ``target``; move it into place only on success."""
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    os.close(fd)
+    tmp = Path(tmp)
+    umask = os.umask(0)
+    os.umask(umask)
+    tmp.chmod(0o666 & ~umask)
+    try:
+        yield tmp
+        os.replace(tmp, target)
+    finally:
+        tmp.unlink(missing_ok=True)

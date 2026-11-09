@@ -49,17 +49,8 @@ Repository = "https://github.com/roncofaber/crucible-labs"
 Documentation = "https://github.com/roncofaber/crucible-labs#readme"
 "Bug Tracker" = "https://github.com/roncofaber/crucible-labs/issues"
 
-[tool.setuptools]
-packages = [
-    "clabs",
-    "clabs.measurements",
-    "clabs.measurements.uvvis",
-    "clabs.measurements.image",
-    "clabs.measurements.rga",
-    "clabs.utils",
-    "clabs.graph",
-    "clabs.plot"
-]
+[tool.setuptools.packages.find]
+include = ["clabs*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "clabs.__version__"}

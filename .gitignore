@@ -208,3 +208,5 @@ __marimo__/
 
 # AI slop
 .claude
+# Agent planning artifacts
+docs/superpowers/

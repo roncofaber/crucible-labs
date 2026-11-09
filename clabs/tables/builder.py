@@ -5,7 +5,7 @@ from datetime import timedelta
 from .specs import FieldSpec, RowSpec
 
 
-def build_table(samples, rows=None, fields=None, include_ancestors=False):
+def build_table(samples, rows=None, fields=None, include_ancestors=False, strict=False):
     """
     Build a pandas DataFrame from a SampleCollection with configurable row
     granularity and field extraction.
@@ -35,6 +35,9 @@ def build_table(samples, rows=None, fields=None, include_ancestors=False):
 
     include_ancestors : bool
         If True, walk ancestor samples when extracting fields.
+    strict : bool
+        If True, raise ``ValueError`` when two specs produce the same column
+        instead of letting the later one overwrite the earlier.
 
     Returns
     -------
@@ -57,7 +60,10 @@ def build_table(samples, rows=None, fields=None, include_ancestors=False):
             d = d.get(part)
         return d
 
-    def _extract_dataset_mtype(source, mtype, keys):
+    def _from_metadata(sm, spec):
+        return {spec.column(key): spec.apply(_get_nested(sm, key)) for key in spec.keys}
+
+    def _extract_dataset_mtype(source, mtype, spec):
         """Youngest matching dataset on source; returns {} if none found."""
         matches = [d for d in source.datasets if d.dtype == mtype]
         if not matches:
@@ -68,18 +74,28 @@ def build_table(samples, rows=None, fields=None, include_ancestors=False):
         )[0].scientific_metadata
         if not sm:
             return {}
-        return {key.split(".")[-1]: _get_nested(sm, key) for key in keys}
+        return _from_metadata(sm, spec)
 
-    def _extract_sample_meta(source, keys):
+    def _extract_sample_meta(source, spec):
         """Keys from source.scientific_metadata; returns {} if absent."""
         sm = getattr(source, "scientific_metadata", None)
         if not sm:
             return {}
-        return {key.split(".")[-1]: _get_nested(sm, key) for key in keys}
+        return _from_metadata(sm, spec)
 
-    def _extract_attribute(source, keys):
+    def _extract_attribute(source, spec):
         """getattr for each key on source."""
-        return {key: getattr(source, key, None) for key in keys}
+        return {spec.prefix + spec.rename.get(key, key): spec.apply(getattr(source, key, None))
+                for key in spec.keys}
+
+    def _extract_source(sample, spec):
+        """Keys from the resource chosen by spec.source; always yields every column."""
+        resource = spec.source(sample)
+        if resource is None:
+            return {spec.column(key): None for key in spec.keys}
+        if spec.kind == "attribute":
+            return _extract_attribute(resource, spec)
+        return _from_metadata(getattr(resource, "scientific_metadata", None) or {}, spec)
 
     # ------------------------------------------------------------------
     # Field collection
@@ -89,8 +105,24 @@ def build_table(samples, rows=None, fields=None, include_ancestors=False):
         """Walk sample (and optionally ancestors), extract all specs."""
         sources = [sample] + (list(sample.ancestors) if include_ancestors else [])
         result  = {}
+        owners  = {}
+
+        def _store(label, data):
+            if strict:
+                for column in data:
+                    if column in owners and owners[column] != label:
+                        raise ValueError(
+                            f"Column {column!r} is produced by both "
+                            f"{owners[column]!r} and {label!r}"
+                        )
+                    owners[column] = label
+            result.update(data)
 
         for label, spec in specs.items():
+            if spec.source is not None:
+                _store(label, _extract_source(sample, spec))
+                continue
+
             filtered = [
                 s for s in sources
                 if spec.sample_type is None or s.sample_type == spec.sample_type
@@ -101,27 +133,27 @@ def build_table(samples, rows=None, fields=None, include_ancestors=False):
                 # aggregate all hits; multiple → numeric suffix
                 hits = [
                     data for s in filtered
-                    for data in [_extract_dataset_mtype(s, mtype, spec.keys)]
+                    for data in [_extract_dataset_mtype(s, mtype, spec)]
                     if data
                 ]
                 if len(hits) == 1:
-                    result.update(hits[0])
+                    _store(label, hits[0])
                 elif len(hits) > 1:
                     for idx, data in enumerate(hits, 1):
-                        result.update({f"{k}_{idx}": v for k, v in data.items()})
+                        _store(label, {f"{k}_{idx}": v for k, v in data.items()})
 
             elif spec.kind == "sample":
                 # first matching source wins
                 for source in filtered:
-                    data = _extract_sample_meta(source, spec.keys)
+                    data = _extract_sample_meta(source, spec)
                     if data:
-                        result.update(data)
+                        _store(label, data)
                         break
 
             elif spec.kind == "attribute":
                 # first matching source wins
                 for source in filtered:
-                    result.update(_extract_attribute(source, spec.keys))
+                    _store(label, _extract_attribute(source, spec))
                     break
 
         return result
@@ -191,10 +223,7 @@ def build_table(samples, rows=None, fields=None, include_ancestors=False):
                 if row_dataset_spec:
                     sm = dataset.scientific_metadata
                     if sm:
-                        row.update({
-                            key.split(".")[-1]: _get_nested(sm, key)
-                            for key in row_dataset_spec.keys
-                        })
+                        row.update(_from_metadata(sm, row_dataset_spec))
 
                 # Remaining specs via sample + ancestor chain
                 if primary:

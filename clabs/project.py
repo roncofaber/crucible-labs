@@ -299,10 +299,10 @@ class CrucibleProject:
 
     #%% table export
 
-    def to_dataframe(self, rows=None, fields=None, include_ancestors=False):
+    def to_dataframe(self, rows=None, fields=None, include_ancestors=False, strict=False):
         """Build a DataFrame from this project. See :func:`clabs.tables.build_table`."""
         return self._samples.to_dataframe(rows=rows, fields=fields,
-                                          include_ancestors=include_ancestors)
+                                          include_ancestors=include_ancestors, strict=strict)
 
     #%% project metadata
 
